@@ -127,14 +127,20 @@ process_symbolic :: proc(lexer: ^Lexer) -> Basic_Token {
 }
 
 process_string :: proc(lexer: ^Lexer) -> Basic_Token {
-    in_escape_sequence := false
-    in_whitespace_escape := false
-    in_control_escape := false
-    in_digit_escape := false
+
+    Escape_Status :: enum {
+        NONE,
+        BACKSLASH,
+        WHITESPACE,
+        CONTROL, 
+        DIGIT,
+    }
+    
+    escape_status := Escape_Status.NONE
     num_digits := 0
 
     prev_pos: int
-    for true {
+    loop: for true {
         prev_pos = int(lexer.reader.i)
         r, r_size, err := strings.reader_read_rune(&lexer.reader)
         
@@ -143,57 +149,61 @@ process_string :: proc(lexer: ^Lexer) -> Basic_Token {
         
         if r == '\n' do lexer.line += 1
 
-        if in_escape_sequence {
-            if in_control_escape {
-                if r < 64 || r > 95 {
-                    fmt.printfln("bad escape sequence: \\^%r", r)
-                }
-                in_control_escape = false
-                in_escape_sequence = false
-            }
-            else if in_digit_escape {
-                if is_numeric(r) {
-                    num_digits += 1
+        switch escape_status {
+        case .NONE: 
+            if r == '"' do break loop
+            if r == '\\' do escape_status = .BACKSLASH
+
+        case .BACKSLASH:
+            switch r {
+            case 'n', 't', '"', '\\':
+                escape_status = .NONE
+            case '^':
+                escape_status = .CONTROL
+            case '0'..='9':
+                escape_status = .DIGIT
+                num_digits = 1
+            case:
+                if in_char_set(whitespace_chars, r) {
+                    escape_status = .WHITESPACE
                 }
                 else {
                     fmt.printfln("unexpected character in escape sequence: '%r'", r)
-                    in_digit_escape = false
-                    in_escape_sequence = false
                 }
+            }
+
+        case .WHITESPACE:
+            // format: "\   [newline]   \" or any other sequence of whitespace characters
+            // value: ignored
+            if !in_char_set(whitespace_chars, r) {
+                if r != '\\' {
+                    fmt.printfln("unexpected character in escape sequence: '%r'", r)
+                }
+                escape_status = .NONE
+            }
+
+        case .CONTROL:
+            // format: "\^[char]" where [char] is a character between 64 and 95 inclusive
+            // value: the control character with value (r - 64)
+            if r < 64 || r > 95 {
+                fmt.printfln("bad escape sequence: \\^%r", r)
+            }
+            escape_status = .NONE
+
+        case .DIGIT:
+            // format: "\[a][b][c]" where each of [a], [b], [c] is a digit. min 000, max 255
+            // value: the character with value [a][b][c]
+            if r >= '0' && r <= '9' {
+                num_digits += 1
+
                 if num_digits >= 3 {
-                    in_digit_escape = false
-                    in_escape_sequence = false
+                    escape_status = .NONE
                 }
-            }
-            else if in_whitespace_escape {
-                if !in_char_set(whitespace_chars, r) {
-                    if r != '\\' {
-                        fmt.printfln("unexpected character in escape sequence: '%r'", r)
-                    }
-                    in_whitespace_escape = false
-                    in_escape_sequence = false
-                }
-            }
-            else if r == 'n' || r == 't' || r == '"' || r == '\\' {
-                in_escape_sequence = false
-            }
-            else if r == '^' {
-                in_control_escape = true
-            }
-            else if is_numeric(r) {
-                in_digit_escape = true
-                num_digits = 1
-            }
-            else if in_char_set(whitespace_chars, r) {
-                in_whitespace_escape = true
             }
             else {
-                fmt.printfln("invalid escape sequence")
+                fmt.printfln("unexpected character in escape sequence: '%r'", r)
+                escape_status = .NONE
             }
-        }
-        else {
-            if r == '"' do break
-            if r == '\\' do in_escape_sequence = true
         }
     }
 

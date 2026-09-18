@@ -8,7 +8,12 @@ main :: proc() {
     script := "fun f' 0 _ b = b \n  | f' n a b = f' (n-1) (a+b) a; \n fun f n = f' n 1 0; \nf 10;"
     
     basic_tokens := basic_tokenize(&script)
-    defer delete(basic_tokens)
+    defer {
+        for token in basic_tokens {
+            delete(token.text)
+        }
+        delete(basic_tokens)
+    }
 
     for token in basic_tokens {
         switch token.type {
@@ -26,7 +31,12 @@ main :: proc() {
     }
 
     full_tokens := full_token_pass(basic_tokens)
-    defer delete(full_tokens)
+    defer {
+        for token in full_tokens {
+            delete(token.text)
+        }
+        delete(full_tokens)
+    }
 
     fmt.println()
 
