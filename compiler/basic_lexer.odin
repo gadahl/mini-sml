@@ -9,6 +9,7 @@ Basic_Token_Type :: enum {
     SYMBOLIC,
     SPECIAL_CHAR,
     STRING_LIT,
+    COMMENT,
 }
 
 Basic_Token :: struct {
@@ -46,6 +47,7 @@ basic_tokenize :: proc(script: ^string) -> [dynamic]Basic_Token {
         case .SYMBOLIC:     new_token = process_symbolic(&lexer)
         case .SPECIAL_CHAR: new_token = process_special_char(&lexer)
         case .STRING_LIT:   new_token = process_string(&lexer)
+        case .COMMENT:      new_token = process_comment(&lexer)
         }
 
         append(&tokens, new_token)
@@ -64,6 +66,19 @@ find_next_token :: proc(lexer: ^Lexer) -> (Basic_Token_Type, int) {
         if err != nil do panic(fmt.tprintf("error: %v", err))
 
         if r == '\n' do lexer.line += 1
+
+        if r == '(' {
+            next_r, next_size, next_err := strings.reader_read_rune(&lexer.reader)
+            if err != .EOF {
+                if err != nil do panic(fmt.tprintf("error: %v", err))
+                
+                if next_r == '*' {
+                    return .COMMENT, prev_pos
+                }
+
+                strings.reader_unread_rune(&lexer.reader)
+            }
+        }
 
         if is_alphanumeric(r) {
             return .ALPHANUMERIC, prev_pos
@@ -124,6 +139,39 @@ process_symbolic :: proc(lexer: ^Lexer) -> Basic_Token {
     lexer.reader.i = i64(prev_pos)
     text := lexer.reader.s[lexer.token_start : prev_pos]
     return Basic_Token{.SYMBOLIC, strings.clone(text), lexer.line}
+}
+
+process_comment :: proc(lexer: ^Lexer) -> Basic_Token {
+    process_comment_rec(lexer)
+
+    text := lexer.reader.s[lexer.token_start : int(lexer.reader.i)]
+    return Basic_Token{.COMMENT, strings.clone(text), lexer.line}
+}
+
+// this function expects to start just inside the comment and finishes just outside it
+process_comment_rec :: proc(lexer: ^Lexer) {
+    prev_r: rune = ' '
+
+    for true {
+        r, _, err := strings.reader_read_rune(&lexer.reader)
+        
+        if err == .EOF {
+            fmt.printfln(`Missing end of comment "*)"`)
+            return
+        }
+        if err != nil do panic(fmt.tprintf("error: %v", err))
+        
+        if r == '\n' do lexer.line += 1
+
+        if prev_r == '*' && r == ')' {
+            return
+        }
+        if prev_r == '(' && r == '*' {
+            process_comment_rec(lexer)
+        }
+
+        prev_r = r
+    }
 }
 
 process_string :: proc(lexer: ^Lexer) -> Basic_Token {

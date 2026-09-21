@@ -138,6 +138,47 @@ test_tokenize_comment :: proc(t: ^testing.T) {
     })
 }
 
+@(test)
+test_tokenize_comments_and_nums :: proc(t: ^testing.T) {
+    str := `123 (*25*)0 (**) 34(* 8 *) 9`
+    test_basic_token_output(t, &str, {
+        {.ALPHANUMERIC, `123`,      1},
+        {.COMMENT,      `(*25*)`,   1},
+        {.ALPHANUMERIC, `0`,        1},
+        {.COMMENT,      `(**)`,     1},
+        {.ALPHANUMERIC, `34`,       1},
+        {.COMMENT,      `(* 8 *)`,  1},
+        {.ALPHANUMERIC, `9`,        1},
+    })
+}
+
+@(test)
+test_tokenize_nested_comments :: proc(t: ^testing.T) {
+    str := `(* comment (* layer 2 *) *)`
+    test_basic_token_output(t, &str, {
+        {.COMMENT, `(* comment (* layer 2 *) *)`, 1},
+    })
+}
+
+@(test)
+test_tokenize_squashed_comments :: proc(t: ^testing.T) {
+    str := `(*(**)(**)*)(*)*)`
+    test_basic_token_output(t, &str, {
+        {.COMMENT, `(*(**)(**)*)`, 1},
+        {.COMMENT, `(*)*)`, 1},
+    })
+}
+
+@(test)
+test_tokenize_comments_and_strings :: proc(t: ^testing.T) {
+    str := `(*"*) (* "abc" "123 *) " lmnop )* "`
+    test_basic_token_output(t, &str, {
+        {.COMMENT,    `(*"*)`,            1},
+        {.COMMENT,    `(* "abc" "123 *)`, 1},
+        {.STRING_LIT, `" lmnop )* "`,     1},
+    })
+}
+
 
 
 @(test)

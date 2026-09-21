@@ -23,6 +23,8 @@ main :: proc() {
             fmt.println("SYMBOLIC", token.text)
         case .SPECIAL_CHAR: 
             fmt.println("SPECIAL ", token.text)
+        case .COMMENT:
+            fmt.println("COMMENT ", token.text)
         case .STRING_LIT: 
             fmt.println("STRING  ", token.text)
         case .NONE: 
@@ -183,6 +185,9 @@ full_token_pass :: proc(basic_tokens: [dynamic]Basic_Token) -> [dynamic]Full_Tok
             if token.text[0] != '.' {
                 append(&full_tokens, Full_Token{.RESERVED_KEYWORD, strings.clone(token.text), token.line})
             }
+            
+        case .COMMENT:
+            append(&full_tokens, Full_Token{.COMMENT, strings.clone(token.text), token.line})
             
         case .STRING_LIT:
             append(&full_tokens, Full_Token{.STRING_LIT, strings.clone(token.text), token.line})
