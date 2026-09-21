@@ -19,25 +19,31 @@ Basic_Token :: struct {
 }
 
 Lexer :: struct {
-    reader: strings.Reader,
-    token_start: int,
-    line: int
+    str: string,
+    done_i: int,
+    curr_i: int,
+    done_line: int,
+    curr_line: int,
+}
+
+File_Position :: struct {
+    line: int,
+    char: int,
 }
 
 basic_tokenize :: proc(script: ^string) -> [dynamic]Basic_Token {
-    reader: strings.Reader
-    strings.reader_init(&reader, script^)
     lexer := Lexer{
-        reader = reader, 
-        token_start = 0, 
-        line = 1, 
+        str = script^, 
+        done_i = 0, 
+        curr_i = 0, 
+        done_line = 1,
+        curr_line = 1,
     }
     
     tokens := make([dynamic]Basic_Token)
 
     loop: for true {
-        token_type, prev_pos := find_next_token(&lexer)
-        lexer.token_start = prev_pos
+        token_type := find_next_token(&lexer)
 
         new_token: Basic_Token
 
@@ -51,127 +57,148 @@ basic_tokenize :: proc(script: ^string) -> [dynamic]Basic_Token {
         }
 
         append(&tokens, new_token)
+
+        lexer_confirm(&lexer)
     }
 
     return tokens
 }
 
-find_next_token :: proc(lexer: ^Lexer) -> (Basic_Token_Type, int) {
-    prev_pos : int
-    for true {
-        prev_pos = int(lexer.reader.i)
+lexer_has_char :: proc(lexer: ^Lexer) -> bool {
+    return len(lexer.str) > lexer.curr_i
+}
+lexer_advance :: proc(lexer: ^Lexer) -> u8 {
+    c := lexer.str[lexer.curr_i]
 
-        r, r_size, err := strings.reader_read_rune(&lexer.reader)
-        if err == .EOF do return .NONE, prev_pos
-        if err != nil do panic(fmt.tprintf("error: %v", err))
+    lexer.curr_i += 1
+    if c == '\n' do lexer.curr_line += 1
 
-        if r == '\n' do lexer.line += 1
+    return c
+}
+lexer_peek :: proc(lexer: ^Lexer) -> u8 {
+    return lexer.str[lexer.curr_i]
+}
+lexer_backtrack :: proc(lexer: ^Lexer) {
+    lexer.curr_i -= 1
 
-        if r == '(' {
-            next_r, next_size, next_err := strings.reader_read_rune(&lexer.reader)
-            if err != .EOF {
-                if err != nil do panic(fmt.tprintf("error: %v", err))
-                
-                if next_r == '*' {
-                    return .COMMENT, prev_pos
-                }
+    c := lexer.str[lexer.curr_i]
+    if c == '\n' do lexer.curr_line -= 1
+}
+lexer_confirm :: proc(lexer: ^Lexer) {
+    lexer.done_i = lexer.curr_i
+    lexer.done_line = lexer.curr_line
+}
+lexer_substring :: proc(lexer: ^Lexer) -> string {
+    return lexer.str[lexer.done_i : lexer.curr_i]
+}
 
-                strings.reader_unread_rune(&lexer.reader)
-            }
+find_next_token :: proc(lexer: ^Lexer) -> Basic_Token_Type {
+    for lexer_has_char(lexer) {
+        
+        c := lexer_advance(lexer)
+
+        if is_alphanumeric(c) {
+            return .ALPHANUMERIC
+        }
+        else if in_char_set(symbolic_chars, c) {
+            return .SYMBOLIC
+        }
+        else if in_char_set(reserved_chars, c) {
+            return .SPECIAL_CHAR
+        }
+        else if c == '"' {
+            return .STRING_LIT
         }
 
-        if is_alphanumeric(r) {
-            return .ALPHANUMERIC, prev_pos
-        }
-        else if in_char_set(symbolic_chars, r) {
-            return .SYMBOLIC, prev_pos
-        }
-        else if in_char_set(reserved_chars, r) {
-            return .SPECIAL_CHAR, prev_pos
-        }
-        else if r == '"' {
-            return .STRING_LIT, prev_pos
-        }
+        lexer_confirm(lexer)
     }
 
-    return .NONE, prev_pos
+    return .NONE
 }
 
 process_alphanum :: proc(lexer: ^Lexer) -> Basic_Token {
-    prev_pos : int
-    for true {
-        prev_pos = int(lexer.reader.i)
-        r, r_size, err := strings.reader_read_rune(&lexer.reader)
+    for lexer_has_char(lexer) {
         
-        if err == .EOF do break
-        if err != nil do panic(fmt.tprintf("error: %v", err))
+        c := lexer_advance(lexer)
         
-        if r == '\n' do lexer.line += 1
-        
-        if !is_alphanumeric(r) do break
+        if !is_alphanumeric(c) do break
     }
 
-    lexer.reader.i = i64(prev_pos)
-    text := lexer.reader.s[lexer.token_start : prev_pos]
-    return Basic_Token{.ALPHANUMERIC, strings.clone(text), lexer.line}
+    lexer_backtrack(lexer)
+
+    return Basic_Token{
+        type = .ALPHANUMERIC, 
+        text = strings.clone(lexer_substring(lexer)), 
+        line = lexer.done_line
+    }
 }
 
 process_special_char :: proc(lexer: ^Lexer) -> Basic_Token {
-    // always is 1 character
-    text := lexer.reader.s[lexer.token_start : int(lexer.reader.i)]
-    return Basic_Token{.SPECIAL_CHAR, strings.clone(text), lexer.line}
+    // check for comment
+    if lexer.str[lexer.curr_i - 1] == '(' {
+        if lexer_has_char(lexer) {
+            if lexer_advance(lexer) == '*' {
+                return process_comment(lexer)
+            }
+            lexer_backtrack(lexer)
+        }
+    }
+
+    // otherwise always is 1 character
+    return Basic_Token{
+        type = .SPECIAL_CHAR, 
+        text = strings.clone(lexer_substring(lexer)), 
+        line = lexer.done_line
+    }
 }
 
 process_symbolic :: proc(lexer: ^Lexer) -> Basic_Token {
-    prev_pos : int
-    for true {
-        prev_pos = int(lexer.reader.i)
-        r, r_size, err := strings.reader_read_rune(&lexer.reader)
-        
-        if err == .EOF do break
-        if err != nil do panic(fmt.tprintf("error: %v", err))
-        
-        if r == '\n' do lexer.line += 1
 
-        if !in_char_set(symbolic_chars, r) do break
+    for lexer_has_char(lexer) {
+        
+        c := lexer_advance(lexer)
+        
+        if !in_char_set(symbolic_chars, c) do break
     }
 
-    lexer.reader.i = i64(prev_pos)
-    text := lexer.reader.s[lexer.token_start : prev_pos]
-    return Basic_Token{.SYMBOLIC, strings.clone(text), lexer.line}
+    lexer_backtrack(lexer)
+
+    return Basic_Token{
+        type = .SYMBOLIC, 
+        text = strings.clone(lexer_substring(lexer)), 
+        line = lexer.done_line
+    }
 }
 
 process_comment :: proc(lexer: ^Lexer) -> Basic_Token {
     process_comment_rec(lexer)
 
-    text := lexer.reader.s[lexer.token_start : int(lexer.reader.i)]
-    return Basic_Token{.COMMENT, strings.clone(text), lexer.line}
+    return Basic_Token{
+        type = .COMMENT, 
+        text = strings.clone(lexer_substring(lexer)), 
+        line = lexer.done_line
+    }
 }
 
 // this function expects to start just inside the comment and finishes just outside it
 process_comment_rec :: proc(lexer: ^Lexer) {
-    prev_r: rune = ' '
+    prev_c: u8 = ' '
 
-    for true {
-        r, _, err := strings.reader_read_rune(&lexer.reader)
+    for lexer_has_char(lexer) {
         
-        if err == .EOF {
-            fmt.printfln(`Missing end of comment "*)"`)
+        c := lexer_advance(lexer)
+        
+        if prev_c == '*' && c == ')' {
             return
         }
-        if err != nil do panic(fmt.tprintf("error: %v", err))
-        
-        if r == '\n' do lexer.line += 1
-
-        if prev_r == '*' && r == ')' {
-            return
-        }
-        if prev_r == '(' && r == '*' {
+        if prev_c == '(' && c == '*' {
             process_comment_rec(lexer)
         }
 
-        prev_r = r
+        prev_c = c
     }
+
+    fmt.printfln(`Missing end of comment starting at line %d`, lexer.done_line)
 }
 
 process_string :: proc(lexer: ^Lexer) -> Basic_Token {
@@ -187,23 +214,17 @@ process_string :: proc(lexer: ^Lexer) -> Basic_Token {
     escape_status := Escape_Status.NONE
     num_digits := 0
 
-    prev_pos: int
-    loop: for true {
-        prev_pos = int(lexer.reader.i)
-        r, r_size, err := strings.reader_read_rune(&lexer.reader)
-        
-        if err == .EOF do break
-        if err != nil do panic(fmt.tprintf("error: %v", err))
-        
-        if r == '\n' do lexer.line += 1
+    loop: for lexer_has_char(lexer) {
+
+        c := lexer_advance(lexer)
 
         switch escape_status {
         case .NONE: 
-            if r == '"' do break loop
-            if r == '\\' do escape_status = .BACKSLASH
+            if c == '"' do break loop
+            if c == '\\' do escape_status = .BACKSLASH
 
         case .BACKSLASH:
-            switch r {
+            switch c {
             case 'n', 't', '"', '\\':
                 escape_status = .NONE
             case '^':
@@ -212,20 +233,20 @@ process_string :: proc(lexer: ^Lexer) -> Basic_Token {
                 escape_status = .DIGIT
                 num_digits = 1
             case:
-                if in_char_set(whitespace_chars, r) {
+                if in_char_set(whitespace_chars, c) {
                     escape_status = .WHITESPACE
                 }
                 else {
-                    fmt.printfln("unexpected character in escape sequence: '%r'", r)
+                    fmt.printfln("unexpected character in escape sequence: '%c'", c)
                 }
             }
 
         case .WHITESPACE:
             // format: "\   [newline]   \" or any other sequence of whitespace characters
             // value: ignored
-            if !in_char_set(whitespace_chars, r) {
-                if r != '\\' {
-                    fmt.printfln("unexpected character in escape sequence: '%r'", r)
+            if !in_char_set(whitespace_chars, c) {
+                if c != '\\' {
+                    fmt.printfln("unexpected character in escape sequence: '%c'", c)
                 }
                 escape_status = .NONE
             }
@@ -233,15 +254,15 @@ process_string :: proc(lexer: ^Lexer) -> Basic_Token {
         case .CONTROL:
             // format: "\^[char]" where [char] is a character between 64 and 95 inclusive
             // value: the control character with value (r - 64)
-            if r < 64 || r > 95 {
-                fmt.printfln("bad escape sequence: \\^%r", r)
+            if c < 64 || c > 95 {
+                fmt.printfln("bad escape sequence: \\^%c", c)
             }
             escape_status = .NONE
 
         case .DIGIT:
             // format: "\[a][b][c]" where each of [a], [b], [c] is a digit. min 000, max 255
             // value: the character with value [a][b][c]
-            if r >= '0' && r <= '9' {
+            if c >= '0' && c <= '9' {
                 num_digits += 1
 
                 if num_digits >= 3 {
@@ -249,12 +270,15 @@ process_string :: proc(lexer: ^Lexer) -> Basic_Token {
                 }
             }
             else {
-                fmt.printfln("unexpected character in escape sequence: '%r'", r)
+                fmt.printfln("unexpected character in escape sequence: '%c'", c)
                 escape_status = .NONE
             }
         }
     }
 
-    text := lexer.reader.s[lexer.token_start : int(lexer.reader.i)]
-    return Basic_Token{.STRING_LIT, strings.clone(text), lexer.line}
+    return Basic_Token{
+        type = .STRING_LIT, 
+        text = strings.clone(lexer_substring(lexer)), 
+        line = lexer.done_line
+    }
 }
