@@ -6,12 +6,17 @@ import "core:strings"
 
 main :: proc() {
     script := \
+// `(* A helper function for the main Fibonacci function *) 
+// fun fib' 0 _ b = b 
+//   | fib' n a b = fib' (n-1) (a+b) a; 
+// (* Computes the nth Fibonacci number (* fib 0 -> 0, fib 1 -> 1, ... *) *)
+// fun fib n = fib' n 1 0; 
+// fib 10;`
 `(* A helper function for the main Fibonacci function *) 
-fun fib' 0 _ b = b 
-  | fib' n a b = fib' (n-1) (a+b) a; 
+fun fib' a b n = something;
 (* Computes the nth Fibonacci number (* fib 0 -> 0, fib 1 -> 1, ... *) *)
-fun fib n = fib' n 1 0; 
-fib 10;`
+fun fib n = something;
+val str = "h\069llo \\ \"world\"";`
 
     basic_tokens := basic_tokenize(&script)
     defer {
@@ -21,6 +26,8 @@ fib 10;`
         delete(basic_tokens)
     }
 
+    fmt.println("---- Pass 1 ----")
+
     for token in basic_tokens {
         switch token.type {
         case .ALPHANUMERIC: 
@@ -29,6 +36,7 @@ fib 10;`
             fmt.println("SYMBOLIC", token.text)
         case .SPECIAL_CHAR: 
             fmt.println("SPECIAL ", token.text)
+            if token.text[0] == ';' do fmt.println()
         case .COMMENT:
             fmt.println("COMMENT ", token.text)
         case .STRING_LIT: 
@@ -47,6 +55,7 @@ fib 10;`
     }
 
     fmt.println()
+    fmt.println("---- Pass 2 ----")
 
     for token in full_tokens {
         switch token.type {
@@ -54,6 +63,7 @@ fib 10;`
             fmt.println("STRING  ", token.text)
         case .RESERVED_KEYWORD:
             fmt.println("RESERVED", token.text)
+            if token.text[0] == ';' do fmt.println()
         case .TYPE_VAR:
             fmt.println("TYPEVAR ", token.text)
         case .ALPHANUM_IDENT:
@@ -106,6 +116,15 @@ Full_Token :: struct {
     text: string,
     line: int,
 }
+
+Token_Value :: union {
+    i32,
+    string,
+    f32,
+    No_Value,
+}
+
+No_Value :: struct {}
 
 alpha_keywords: []string: { 
     "_", "abstype", "and", "andalso", "as", "case", "do", "datatype", 
