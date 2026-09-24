@@ -1,6 +1,7 @@
 package compiler
 
 import "core:testing"
+import "core:time"
 
 @(test)
 test_tokenize_basic_empty :: proc(t: ^testing.T) {
@@ -192,6 +193,8 @@ test_tokenize_full_keyword :: proc(t: ^testing.T) {
 
 
 test_basic_token_output :: proc(t: ^testing.T, input: ^string, expected: []Basic_Token) {
+    testing.set_fail_timeout(t, 3 * time.Second)
+
     basic_tokens := basic_tokenize(input)
     defer {
         for token in basic_tokens {
@@ -211,6 +214,8 @@ test_basic_token_output :: proc(t: ^testing.T, input: ^string, expected: []Basic
 }
 
 test_full_token_output :: proc(t: ^testing.T, input: ^string, expected: []Full_Token) {
+    testing.set_fail_timeout(t, 3 * time.Second)
+
     basic_tokens := basic_tokenize(input)
     defer {
         for token in basic_tokens {

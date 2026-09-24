@@ -65,7 +65,7 @@ basic_tokenize :: proc(script: ^string) -> [dynamic]Basic_Token {
 }
 
 lexer_has_char :: proc(lexer: ^Lexer) -> bool {
-    return len(lexer.str) > lexer.curr_i
+    return lexer.curr_i < len(lexer.str)
 }
 lexer_advance :: proc(lexer: ^Lexer) -> u8 {
     c := lexer.str[lexer.curr_i]
@@ -121,10 +121,11 @@ process_alphanum :: proc(lexer: ^Lexer) -> Basic_Token {
         
         c := lexer_advance(lexer)
         
-        if !is_alphanumeric(c) do break
+        if !is_alphanumeric(c) {
+            lexer_backtrack(lexer)
+            break
+        }
     }
-
-    lexer_backtrack(lexer)
 
     return Basic_Token{
         type = .ALPHANUMERIC, 
@@ -158,10 +159,11 @@ process_symbolic :: proc(lexer: ^Lexer) -> Basic_Token {
         
         c := lexer_advance(lexer)
         
-        if !in_char_set(symbolic_chars, c) do break
+        if !in_char_set(symbolic_chars, c) {
+            lexer_backtrack(lexer)
+            break
+        }
     }
-
-    lexer_backtrack(lexer)
 
     return Basic_Token{
         type = .SYMBOLIC, 
