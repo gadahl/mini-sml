@@ -1,7 +1,7 @@
 package compiler
 
 import "core:fmt"
-import "core:strings"
+import str "core:strings"
 
 Token1_Type :: enum {
     NONE,
@@ -15,8 +15,19 @@ Token1_Type :: enum {
 Token1 :: struct {
     type: Token1_Type,
     text: string,
+    literal_value: Literal_Value,
     line: int,
 }
+
+Literal_Value :: union {
+    Undefined,
+    No_Value,
+    i32,
+    f32,
+    string,
+}
+Undefined :: struct {}
+No_Value :: struct {}
 
 Lexer :: struct {
     str: string,
@@ -123,8 +134,9 @@ process_alphanum :: proc(lexer: ^Lexer) -> Token1 {
 
     return Token1{
         type = .ALPHANUMERIC, 
-        text = strings.clone(lexer_token_slice(lexer)), 
-        line = lexer.done_line
+        text = str.clone(lexer_token_slice(lexer)), 
+        literal_value = Undefined{},
+        line = lexer.done_line,
     }
 }
 
@@ -142,8 +154,9 @@ process_special_char :: proc(lexer: ^Lexer) -> Token1 {
     // otherwise always is 1 character
     return Token1{
         type = .SPECIAL_CHAR, 
-        text = strings.clone(lexer_token_slice(lexer)), 
-        line = lexer.done_line
+        text = str.clone(lexer_token_slice(lexer)),
+        literal_value = No_Value{}, 
+        line = lexer.done_line,
     }
 }
 
@@ -161,8 +174,9 @@ process_symbolic :: proc(lexer: ^Lexer) -> Token1 {
 
     return Token1{
         type = .SYMBOLIC, 
-        text = strings.clone(lexer_token_slice(lexer)), 
-        line = lexer.done_line
+        text = str.clone(lexer_token_slice(lexer)), 
+        literal_value = No_Value{},
+        line = lexer.done_line,
     }
 }
 
@@ -172,8 +186,9 @@ process_comment :: proc(lexer: ^Lexer) -> Token1 {
 
     return Token1{
         type = .COMMENT, 
-        text = strings.clone(lexer_token_slice(lexer)), 
-        line = lexer.done_line
+        text = str.clone(lexer_token_slice(lexer)), 
+        literal_value = No_Value{},
+        line = lexer.done_line,
     }
 }
 
@@ -210,6 +225,9 @@ process_string :: proc(lexer: ^Lexer) -> Token1 {
     
     escape_status := Escape_Status.NONE
     num_digits := 0
+    digit_value := 0
+
+    builder := str.builder_make()
 
     loop: for lexer_has_char(lexer) {
 
@@ -217,18 +235,36 @@ process_string :: proc(lexer: ^Lexer) -> Token1 {
 
         switch escape_status {
         case .NONE: 
-            if c == '"' do break loop
-            if c == '\\' do escape_status = .BACKSLASH
+            if c == '"' {
+                break loop
+            }
+            else if c == '\\' {
+                escape_status = .BACKSLASH
+            }
+            else {
+                str.write_byte(&builder, c)
+            }
 
         case .BACKSLASH:
             switch c {
-            case 'n', 't', '"', '\\':
+            case 'n':
+                str.write_byte(&builder, '\n')
+                escape_status = .NONE
+            case 't':
+                str.write_byte(&builder, '\t')
+                escape_status = .NONE
+            case '"': 
+                str.write_byte(&builder, '"')
+                escape_status = .NONE
+            case '\\':
+                str.write_byte(&builder, '\\')
                 escape_status = .NONE
             case '^':
                 escape_status = .CONTROL
             case '0'..='9':
                 escape_status = .DIGIT
                 num_digits = 1
+                digit_value = int(c - '0')
             case:
                 if in_char_set(whitespace_chars, c) {
                     escape_status = .WHITESPACE
@@ -251,7 +287,10 @@ process_string :: proc(lexer: ^Lexer) -> Token1 {
         case .CONTROL:
             // format: "\^[char]" where [char] is a character between 64 and 95 inclusive
             // value: the control character with value (r - 64)
-            if c < 64 || c > 95 {
+            if c >= 64 && c <= 95 {
+                str.write_byte(&builder, c - 64)
+            } 
+            else {
                 fmt.printfln("bad escape sequence: \\^%c", c)
             }
             escape_status = .NONE
@@ -261,8 +300,18 @@ process_string :: proc(lexer: ^Lexer) -> Token1 {
             // value: the character with value [a][b][c]
             if c >= '0' && c <= '9' {
                 num_digits += 1
+                
+                digit_value *= 10;
+                digit_value += int(c - '0')
 
                 if num_digits >= 3 {
+                    if (digit_value <= 255) {
+                        str.write_byte(&builder, u8(digit_value))
+                    } 
+                    else {
+                        fmt.printfln("number too large (greater than 255) in escape sequence: \\%d", digit_value)
+                    }
+
                     escape_status = .NONE
                 }
             }
@@ -275,7 +324,8 @@ process_string :: proc(lexer: ^Lexer) -> Token1 {
 
     return Token1{
         type = .STRING_LIT, 
-        text = strings.clone(lexer_token_slice(lexer)), 
-        line = lexer.done_line
+        text = str.clone(lexer_token_slice(lexer)), 
+        literal_value = str.to_string(builder),
+        line = lexer.done_line,
     }
 }

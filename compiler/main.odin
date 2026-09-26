@@ -4,6 +4,7 @@ import "core:fmt"
 
 
 main :: proc() {
+    fmt.println(int(95-64))
     script := \
 `(* A helper function for the main Fibonacci function *) 
 fun fib' 0 _ b = b 
@@ -54,8 +55,6 @@ val str = "h\069llo \\ \"world\"";`
 
     for token in token2s {
         switch token.type {
-        case .STRING_LIT: 
-            fmt.println("STRING  ", token.text)
         case .RESERVED_KEYWORD:
             fmt.println("RESERVED", token.text)
             if token.text[0] == ';' do fmt.println()
@@ -68,9 +67,11 @@ val str = "h\069llo \\ \"world\"";`
         case .COMMENT:
             fmt.println("COMMENT ", token.text)
         case .INTEGER_LIT:
-            fmt.println("INT LIT ", token.text)
+            fmt.println("INT LIT ", token.text, "-->", token.literal_value)
         case .REAL_LIT:
-            fmt.println("REAL LIT", token.text)
+            fmt.println("REAL LIT", token.text, "-->", token.literal_value)
+        case .STRING_LIT: 
+            fmt.println("STRING  ", token.text, "-->", token.literal_value)
         }
     }
 }

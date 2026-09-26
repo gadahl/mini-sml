@@ -35,17 +35,10 @@ Token2_Type :: enum {
 Token2 :: struct {
     type: Token2_Type,
     text: string,
+    literal_value: Literal_Value,
     line: int,
 }
 
-// Token_Value :: union {
-//     i32,
-//     string,
-//     f32,
-//     No_Value,
-// }
-
-// No_Value :: struct {}
 
 token2_pass :: proc(basic_tokens: [dynamic]Token1) -> [dynamic]Token2 {
     token2s := make([dynamic]Token2)
@@ -63,8 +56,8 @@ token2_pass :: proc(basic_tokens: [dynamic]Token1) -> [dynamic]Token2 {
         }
         else if dot_count != 0 {
             switch dot_count {
-                case 1: append(&token2s, Token2{.RESERVED_KEYWORD, ".", prev_line_num})
-                case 3: append(&token2s, Token2{.RESERVED_KEYWORD, "...", prev_line_num})
+                case 1: append(&token2s, Token2{.RESERVED_KEYWORD, ".",   No_Value{}, prev_line_num})
+                case 3: append(&token2s, Token2{.RESERVED_KEYWORD, "...", No_Value{}, prev_line_num})
                 case:   fmt.printfln("Error: cannot parse %d sequential '.' characters", dot_count)
             }
             dot_count = 0
@@ -78,7 +71,7 @@ token2_pass :: proc(basic_tokens: [dynamic]Token1) -> [dynamic]Token2 {
         case .ALPHANUMERIC:
             for keyword in alpha_keywords {
                 if strings.compare(token.text, keyword) == 0 {
-                    append(&token2s, Token2{.RESERVED_KEYWORD, keyword, token.line})
+                    append(&token2s, Token2{.RESERVED_KEYWORD, keyword, No_Value{}, token.line})
                     break token_switch
                 }
             }
@@ -88,38 +81,38 @@ token2_pass :: proc(basic_tokens: [dynamic]Token1) -> [dynamic]Token2 {
             first_char: u8 = token.text[0]
 
             if first_char == '\'' {
-                append(&token2s, Token2{.TYPE_VAR, strings.clone(token.text), token.line})
+                append(&token2s, Token2{.TYPE_VAR, strings.clone(token.text), No_Value{}, token.line})
             }
             else if is_numeric(first_char) {
                 // TODO: handle number parsing
-                append(&token2s, Token2{.INTEGER_LIT, strings.clone(token.text), token.line})
+                append(&token2s, Token2{.INTEGER_LIT, strings.clone(token.text), Undefined{}, token.line})
             }
             else {
                 // first_char is in a-z or A-Z
-                append(&token2s, Token2{.ALPHANUM_IDENT, strings.clone(token.text), token.line})
+                append(&token2s, Token2{.ALPHANUM_IDENT, strings.clone(token.text), No_Value{}, token.line})
             }
 
         case .SYMBOLIC:
             for keyword in symbolic_keywords {
                 if strings.compare(token.text, keyword) == 0 {
-                    append(&token2s, Token2{.RESERVED_KEYWORD, keyword, token.line})
+                    append(&token2s, Token2{.RESERVED_KEYWORD, keyword, No_Value{}, token.line})
                     break token_switch
                 }
             }
             // at this point, the token needs to be a valid symbolic identifier
-            append(&token2s, Token2{.SYMBOLIC_IDENT, strings.clone(token.text), token.line})
+            append(&token2s, Token2{.SYMBOLIC_IDENT, strings.clone(token.text), No_Value{}, token.line})
 
         case .SPECIAL_CHAR:
             // skip already-handled '.' case
             if token.text[0] != '.' {
-                append(&token2s, Token2{.RESERVED_KEYWORD, strings.clone(token.text), token.line})
+                append(&token2s, Token2{.RESERVED_KEYWORD, strings.clone(token.text), No_Value{}, token.line})
             }
             
         case .COMMENT:
-            append(&token2s, Token2{.COMMENT, strings.clone(token.text), token.line})
+            append(&token2s, Token2{.COMMENT, strings.clone(token.text), No_Value{}, token.line})
             
         case .STRING_LIT:
-            append(&token2s, Token2{.STRING_LIT, strings.clone(token.text), token.line})
+            append(&token2s, Token2{.STRING_LIT, strings.clone(token.text), token.literal_value, token.line})
         }
 
         prev_line_num = token.line
