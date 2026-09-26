@@ -3,215 +3,279 @@ package compiler
 import "core:fmt"
 import "core:strings"
 
-
-main :: proc() {
-    script := \
-// `(* A helper function for the main Fibonacci function *) 
-// fun fib' 0 _ b = b 
-//   | fib' n a b = fib' (n-1) (a+b) a; 
-// (* Computes the nth Fibonacci number (* fib 0 -> 0, fib 1 -> 1, ... *) *)
-// fun fib n = fib' n 1 0; 
-// fib 10;`
-`(* A helper function for the main Fibonacci function *) 
-fun fib' a b n = something;
-(* Computes the nth Fibonacci number (* fib 0 -> 0, fib 1 -> 1, ... *) *)
-fun fib n = something;
-val str = "h\069llo \\ \"world\"";`
-
-    basic_tokens := basic_tokenize(&script)
-    defer {
-        for token in basic_tokens {
-            delete(token.text)
-        }
-        delete(basic_tokens)
-    }
-
-    fmt.println("---- Pass 1 ----")
-
-    for token in basic_tokens {
-        switch token.type {
-        case .ALPHANUMERIC: 
-            fmt.println("ALPHANUM", token.text)
-        case .SYMBOLIC: 
-            fmt.println("SYMBOLIC", token.text)
-        case .SPECIAL_CHAR: 
-            fmt.println("SPECIAL ", token.text)
-            if token.text[0] == ';' do fmt.println()
-        case .COMMENT:
-            fmt.println("COMMENT ", token.text)
-        case .STRING_LIT: 
-            fmt.println("STRING  ", token.text)
-        case .NONE: 
-            fmt.println("NONE")
-        }
-    }
-
-    full_tokens := full_token_pass(basic_tokens)
-    defer {
-        for token in full_tokens {
-            delete(token.text)
-        }
-        delete(full_tokens)
-    }
-
-    fmt.println()
-    fmt.println("---- Pass 2 ----")
-
-    for token in full_tokens {
-        switch token.type {
-        case .STRING_LIT: 
-            fmt.println("STRING  ", token.text)
-        case .RESERVED_KEYWORD:
-            fmt.println("RESERVED", token.text)
-            if token.text[0] == ';' do fmt.println()
-        case .TYPE_VAR:
-            fmt.println("TYPEVAR ", token.text)
-        case .ALPHANUM_IDENT:
-            fmt.println("ALPHA_ID", token.text)
-        case .SYMBOLIC_IDENT:
-            fmt.println("SYMBOLIC", token.text)
-        case .COMMENT:
-            fmt.println("COMMENT ", token.text)
-        case .INTEGER_LIT:
-            fmt.println("INT LIT ", token.text)
-        case .REAL_LIT:
-            fmt.println("REAL LIT", token.text)
-        }
-    }
-}
-
-whitespace_chars :: " \t\r\f\v\n"
-symbolic_chars :: "!@#$%^&*`~-+=/|\\?<>:"
-reserved_chars :: "()[]{},;."
-in_char_set :: proc(char_set: string, c: u8) -> bool {
-    return strings.index_byte(char_set, c) >= 0
-}
-
-is_alpha :: proc(c: u8) -> bool {
-    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '\''
-}
-
-is_numeric :: proc(c: u8) -> bool {
-    return c >= '0' && c <= '9'
-}
-
-is_alphanumeric :: proc(c: u8) -> bool {
-    return is_alpha(c) || is_numeric(c) || c == '_'
-}
-
-
-Full_Token_Type :: enum {
-    RESERVED_KEYWORD,
-    TYPE_VAR,
-    ALPHANUM_IDENT,
-    SYMBOLIC_IDENT,
-    INTEGER_LIT,
+Token1_Type :: enum {
+    NONE,
+    ALPHANUMERIC,
+    SYMBOLIC,
+    SPECIAL_CHAR,
     STRING_LIT,
-    REAL_LIT,
     COMMENT,
 }
 
-Full_Token :: struct {
-    type: Full_Token_Type,
+Token1 :: struct {
+    type: Token1_Type,
     text: string,
     line: int,
 }
 
-Token_Value :: union {
-    i32,
-    string,
-    f32,
-    No_Value,
+Lexer :: struct {
+    str: string,
+    done_i: int,
+    curr_i: int,
+    done_line: int,
+    curr_line: int,
 }
 
-No_Value :: struct {}
+tokenize :: proc(script: ^string) -> [dynamic]Token1 {
+    lexer := Lexer{
+        str = script^, 
+        done_i = 0, 
+        curr_i = 0, 
+        done_line = 1,
+        curr_line = 1,
+    }
+    
+    tokens := make([dynamic]Token1)
 
-alpha_keywords: []string: { 
-    "_", "abstype", "and", "andalso", "as", "case", "do", "datatype", 
-    "else", "end", "exception", "fn", "fun", "handle", "if", "in", "infix", "infixr", 
-    "let", "local", "nonfix", "of", "op", "open", "orelse", 
-    "raise", "rec", "then", "type", "val", "with", "withtype", "while",
-}
-symbolic_keywords: []string: { 
-   ":", "|", "=", "=>", "->", "#",
-}
+    loop: for true {
+        token_type := find_next_token(&lexer)
 
-full_token_pass :: proc(basic_tokens: [dynamic]Basic_Token) -> [dynamic]Full_Token {
-    full_tokens := make([dynamic]Full_Token)
-    dot_count := 0
-    prev_line_num := 1
+        new_token: Token1
 
-    for token in basic_tokens {
-        if (len(token.text) == 0) {
-            panic(fmt.tprintf("basic token is missing text field: %#v", token))
+        switch token_type {
+        case .NONE:         break loop
+        case .ALPHANUMERIC: new_token = process_alphanum(&lexer)
+        case .SYMBOLIC:     new_token = process_symbolic(&lexer)
+        case .SPECIAL_CHAR: new_token = process_special_char(&lexer)
+        case .STRING_LIT:   new_token = process_string(&lexer)
+        case .COMMENT:      new_token = process_comment(&lexer)
         }
 
-        // handle the reserved words "." and "..."
-        if token.type == .SPECIAL_CHAR && token.text[0] == '.' {
-            dot_count += 1
+        append(&tokens, new_token)
+
+        lexer_confirm(&lexer)
+    }
+
+    return tokens
+}
+
+lexer_has_char :: proc(lexer: ^Lexer) -> bool {
+    return lexer.curr_i < len(lexer.str)
+}
+lexer_advance :: proc(lexer: ^Lexer) -> u8 {
+    c := lexer.str[lexer.curr_i]
+
+    lexer.curr_i += 1
+    if c == '\n' do lexer.curr_line += 1
+
+    return c
+}
+lexer_backtrack :: proc(lexer: ^Lexer) {
+    lexer.curr_i -= 1
+
+    c := lexer.str[lexer.curr_i]
+    if c == '\n' do lexer.curr_line -= 1
+}
+lexer_confirm :: proc(lexer: ^Lexer) {
+    lexer.done_i = lexer.curr_i
+    lexer.done_line = lexer.curr_line
+}
+lexer_token_slice :: proc(lexer: ^Lexer) -> string {
+    return lexer.str[lexer.done_i : lexer.curr_i]
+}
+
+find_next_token :: proc(lexer: ^Lexer) -> Token1_Type {
+
+    for lexer_has_char(lexer) {
+        
+        c := lexer_advance(lexer)
+
+        if is_alphanumeric(c) {
+            return .ALPHANUMERIC
         }
-        else if dot_count != 0 {
-            switch dot_count {
-                case 1: append(&full_tokens, Full_Token{.RESERVED_KEYWORD, ".", prev_line_num})
-                case 3: append(&full_tokens, Full_Token{.RESERVED_KEYWORD, "...", prev_line_num})
-                case:   fmt.printfln("Error: cannot parse %d sequential '.' characters", dot_count)
+        else if in_char_set(symbolic_chars, c) {
+            return .SYMBOLIC
+        }
+        else if in_char_set(reserved_chars, c) {
+            return .SPECIAL_CHAR
+        }
+        else if c == '"' {
+            return .STRING_LIT
+        }
+
+        lexer_confirm(lexer)
+    }
+
+    return .NONE
+}
+
+process_alphanum :: proc(lexer: ^Lexer) -> Token1 {
+
+    for lexer_has_char(lexer) {
+        
+        c := lexer_advance(lexer)
+        
+        if !is_alphanumeric(c) {
+            lexer_backtrack(lexer)
+            break
+        }
+    }
+
+    return Token1{
+        type = .ALPHANUMERIC, 
+        text = strings.clone(lexer_token_slice(lexer)), 
+        line = lexer.done_line
+    }
+}
+
+process_special_char :: proc(lexer: ^Lexer) -> Token1 {
+    // check for comment
+    if lexer.str[lexer.curr_i - 1] == '(' {
+        if lexer_has_char(lexer) {
+            if lexer_advance(lexer) == '*' {
+                return process_comment(lexer)
             }
-            dot_count = 0
+            lexer_backtrack(lexer)
+        }
+    }
+
+    // otherwise always is 1 character
+    return Token1{
+        type = .SPECIAL_CHAR, 
+        text = strings.clone(lexer_token_slice(lexer)), 
+        line = lexer.done_line
+    }
+}
+
+process_symbolic :: proc(lexer: ^Lexer) -> Token1 {
+
+    for lexer_has_char(lexer) {
+        
+        c := lexer_advance(lexer)
+        
+        if !in_char_set(symbolic_chars, c) {
+            lexer_backtrack(lexer)
+            break
+        }
+    }
+
+    return Token1{
+        type = .SYMBOLIC, 
+        text = strings.clone(lexer_token_slice(lexer)), 
+        line = lexer.done_line
+    }
+}
+
+process_comment :: proc(lexer: ^Lexer) -> Token1 {
+
+    process_comment_rec(lexer)
+
+    return Token1{
+        type = .COMMENT, 
+        text = strings.clone(lexer_token_slice(lexer)), 
+        line = lexer.done_line
+    }
+}
+
+// this function expects to start just inside the comment and finishes just outside it
+process_comment_rec :: proc(lexer: ^Lexer) {
+    prev_c: u8 = ' '
+
+    for lexer_has_char(lexer) {
+        
+        c := lexer_advance(lexer)
+        
+        if prev_c == '*' && c == ')' {
+            return
+        }
+        if prev_c == '(' && c == '*' {
+            process_comment_rec(lexer)
         }
 
-        token_switch: switch token.type {
-        case .NONE:
-            // this should never happen, so it makes sense to panic here
-            panic(fmt.tprintf("basic token has type .NONE: %#v", token))
+        prev_c = c
+    }
 
-        case .ALPHANUMERIC:
-            for keyword in alpha_keywords {
-                if strings.compare(token.text, keyword) == 0 {
-                    append(&full_tokens, Full_Token{.RESERVED_KEYWORD, keyword, token.line})
-                    break token_switch
+    fmt.printfln(`Missing end of comment starting at line %d`, lexer.done_line)
+}
+
+process_string :: proc(lexer: ^Lexer) -> Token1 {
+
+    Escape_Status :: enum {
+        NONE,
+        BACKSLASH,
+        WHITESPACE,
+        CONTROL, 
+        DIGIT,
+    }
+    
+    escape_status := Escape_Status.NONE
+    num_digits := 0
+
+    loop: for lexer_has_char(lexer) {
+
+        c := lexer_advance(lexer)
+
+        switch escape_status {
+        case .NONE: 
+            if c == '"' do break loop
+            if c == '\\' do escape_status = .BACKSLASH
+
+        case .BACKSLASH:
+            switch c {
+            case 'n', 't', '"', '\\':
+                escape_status = .NONE
+            case '^':
+                escape_status = .CONTROL
+            case '0'..='9':
+                escape_status = .DIGIT
+                num_digits = 1
+            case:
+                if in_char_set(whitespace_chars, c) {
+                    escape_status = .WHITESPACE
+                }
+                else {
+                    fmt.printfln("unexpected character in escape sequence: '%c'", c)
                 }
             }
-            
-            // at this point, the token needs to be a valid alphanum identifier
-            
-            first_char: u8 = token.text[0]
 
-            if first_char == '\'' {
-                append(&full_tokens, Full_Token{.TYPE_VAR, strings.clone(token.text), token.line})
+        case .WHITESPACE:
+            // format: "\   [newline]   \" or any other sequence of whitespace characters
+            // value: ignored
+            if !in_char_set(whitespace_chars, c) {
+                if c != '\\' {
+                    fmt.printfln("unexpected character in escape sequence: '%c'", c)
+                }
+                escape_status = .NONE
             }
-            else if is_numeric(first_char) {
-                // TODO: handle number parsing
-                append(&full_tokens, Full_Token{.INTEGER_LIT, strings.clone(token.text), token.line})
+
+        case .CONTROL:
+            // format: "\^[char]" where [char] is a character between 64 and 95 inclusive
+            // value: the control character with value (r - 64)
+            if c < 64 || c > 95 {
+                fmt.printfln("bad escape sequence: \\^%c", c)
+            }
+            escape_status = .NONE
+
+        case .DIGIT:
+            // format: "\[a][b][c]" where each of [a], [b], [c] is a digit. min 000, max 255
+            // value: the character with value [a][b][c]
+            if c >= '0' && c <= '9' {
+                num_digits += 1
+
+                if num_digits >= 3 {
+                    escape_status = .NONE
+                }
             }
             else {
-                // first_char is in a-z or A-Z
-                append(&full_tokens, Full_Token{.ALPHANUM_IDENT, strings.clone(token.text), token.line})
+                fmt.printfln("unexpected character in escape sequence: '%c'", c)
+                escape_status = .NONE
             }
-
-        case .SYMBOLIC:
-            for keyword in symbolic_keywords {
-                if strings.compare(token.text, keyword) == 0 {
-                    append(&full_tokens, Full_Token{.RESERVED_KEYWORD, keyword, token.line})
-                    break token_switch
-                }
-            }
-            // at this point, the token needs to be a valid symbolic identifier
-            append(&full_tokens, Full_Token{.SYMBOLIC_IDENT, strings.clone(token.text), token.line})
-
-        case .SPECIAL_CHAR:
-            // skip already-handled '.' case
-            if token.text[0] != '.' {
-                append(&full_tokens, Full_Token{.RESERVED_KEYWORD, strings.clone(token.text), token.line})
-            }
-            
-        case .COMMENT:
-            append(&full_tokens, Full_Token{.COMMENT, strings.clone(token.text), token.line})
-            
-        case .STRING_LIT:
-            append(&full_tokens, Full_Token{.STRING_LIT, strings.clone(token.text), token.line})
         }
-
-        prev_line_num = token.line
     }
-    return full_tokens
+
+    return Token1{
+        type = .STRING_LIT, 
+        text = strings.clone(lexer_token_slice(lexer)), 
+        line = lexer.done_line
+    }
 }

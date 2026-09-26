@@ -4,39 +4,39 @@ import "core:testing"
 import "core:time"
 
 @(test)
-test_tokenize_basic_empty :: proc(t: ^testing.T) {
+test_tokenize1_empty :: proc(t: ^testing.T) {
     str := ""
-    test_basic_token_output(t, &str, {})
+    test_token1_output(t, &str, {})
 }
 
 @(test)
-test_tokenize_basic_symbolic :: proc(t: ^testing.T) {
+test_tokenize1_symbolic :: proc(t: ^testing.T) {
     str := "<#>"
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.SYMBOLIC, "<#>", 1},
     })
 }
 
 @(test)
-test_tokenize_basic_alphanum :: proc(t: ^testing.T) {
+test_tokenize1_alphanum :: proc(t: ^testing.T) {
     str := "abc_123'"
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.ALPHANUMERIC, "abc_123'", 1},
     })
 }
 
 @(test)
-test_tokenize_basic_special_char :: proc(t: ^testing.T) {
+test_tokenize1_special_char :: proc(t: ^testing.T) {
     str := "."
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.SPECIAL_CHAR, ".", 1},
     })
 }
 
 @(test)
-test_tokenize_basic_spaced :: proc(t: ^testing.T) {
+test_tokenize1_spaced :: proc(t: ^testing.T) {
     str := "fun h x y0 = f x + g y0 - 1 ;"
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.ALPHANUMERIC, "fun", 1},
         {.ALPHANUMERIC, "h", 1},
         {.ALPHANUMERIC, "x", 1},
@@ -54,9 +54,9 @@ test_tokenize_basic_spaced :: proc(t: ^testing.T) {
 }
 
 @(test)
-test_tokenize_basic_squished :: proc(t: ^testing.T) {
+test_tokenize1_squished :: proc(t: ^testing.T) {
     str := "funhxy0=fx+gy0-1;"
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.ALPHANUMERIC, "funhxy0", 1},
         {.SYMBOLIC, "=", 1},
         {.ALPHANUMERIC, "fx", 1},
@@ -69,9 +69,9 @@ test_tokenize_basic_squished :: proc(t: ^testing.T) {
 }
 
 @(test)
-test_tokenize_basic_ellipsis :: proc(t: ^testing.T) {
+test_tokenize1_ellipsis :: proc(t: ^testing.T) {
     str := "..."
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.SPECIAL_CHAR, ".", 1},
         {.SPECIAL_CHAR, ".", 1},
         {.SPECIAL_CHAR, ".", 1},
@@ -79,26 +79,26 @@ test_tokenize_basic_ellipsis :: proc(t: ^testing.T) {
 }
 
 @(test)
-test_tokenize_basic_string :: proc(t: ^testing.T) {
+test_tokenize1_string :: proc(t: ^testing.T) {
     str := `"hello world"`
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.STRING_LIT, `"hello world"`, 1},
     })
 }
 
 @(test)
-test_tokenize_basic_separated_string :: proc(t: ^testing.T) {
+test_tokenize1_separated_string :: proc(t: ^testing.T) {
     str := `"hello"" world"`
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.STRING_LIT, `"hello"`, 1},
         {.STRING_LIT, `" world"`, 1},
     })
 }
 
 @(test)
-test_tokenize_basic_escaped_string :: proc(t: ^testing.T) {
+test_tokenize1_escaped_string :: proc(t: ^testing.T) {
     str := `"hello\"\" world"`
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.STRING_LIT, `"hello\"\" world"`, 1},
     })
 }
@@ -106,7 +106,7 @@ test_tokenize_basic_escaped_string :: proc(t: ^testing.T) {
 @(test)
 test_tokenize_ctrl_string :: proc(t: ^testing.T) {
     str := `"lorem ipsum \^C" ++ "\^R" ++ str3`
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.STRING_LIT, `"lorem ipsum \^C"`, 1},
         {.SYMBOLIC, `++`, 1},
         {.STRING_LIT, `"\^R"`, 1},
@@ -118,7 +118,7 @@ test_tokenize_ctrl_string :: proc(t: ^testing.T) {
 @(test)
 test_tokenize_ctrl_string_bounds :: proc(t: ^testing.T) {
     str := `"\^@\^_"`
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.STRING_LIT, `"\^@\^_"`, 1},
     })
 }
@@ -126,7 +126,7 @@ test_tokenize_ctrl_string_bounds :: proc(t: ^testing.T) {
 @(test)
 test_tokenize_digit_string :: proc(t: ^testing.T) {
     str := `"\000\255"`
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.STRING_LIT, `"\000\255"`, 1},
     })
 }
@@ -134,7 +134,7 @@ test_tokenize_digit_string :: proc(t: ^testing.T) {
 @(test)
 test_tokenize_comment :: proc(t: ^testing.T) {
     str := `(* comment *)`
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.COMMENT, `(* comment *)`, 1},
     })
 }
@@ -142,7 +142,7 @@ test_tokenize_comment :: proc(t: ^testing.T) {
 @(test)
 test_tokenize_comments_and_nums :: proc(t: ^testing.T) {
     str := `123 (*25*)0 (**) 34(* 8 *) 9`
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.ALPHANUMERIC, `123`,      1},
         {.COMMENT,      `(*25*)`,   1},
         {.ALPHANUMERIC, `0`,        1},
@@ -156,7 +156,7 @@ test_tokenize_comments_and_nums :: proc(t: ^testing.T) {
 @(test)
 test_tokenize_nested_comments :: proc(t: ^testing.T) {
     str := `(* comment (* layer 2 *) *)`
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.COMMENT, `(* comment (* layer 2 *) *)`, 1},
     })
 }
@@ -164,7 +164,7 @@ test_tokenize_nested_comments :: proc(t: ^testing.T) {
 @(test)
 test_tokenize_squashed_comments :: proc(t: ^testing.T) {
     str := `(*(**)(**)*)(*)*)`
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.COMMENT, `(*(**)(**)*)`, 1},
         {.COMMENT, `(*)*)`, 1},
     })
@@ -173,7 +173,7 @@ test_tokenize_squashed_comments :: proc(t: ^testing.T) {
 @(test)
 test_tokenize_comments_and_strings :: proc(t: ^testing.T) {
     str := `(*"*) (* "abc" "123 *) " lmnop )* "`
-    test_basic_token_output(t, &str, {
+    test_token1_output(t, &str, {
         {.COMMENT,    `(*"*)`,            1},
         {.COMMENT,    `(* "abc" "123 *)`, 1},
         {.STRING_LIT, `" lmnop )* "`,     1},
@@ -183,61 +183,61 @@ test_tokenize_comments_and_strings :: proc(t: ^testing.T) {
 
 
 @(test)
-test_tokenize_full_keyword :: proc(t: ^testing.T) {
+test_tokenize2_keyword :: proc(t: ^testing.T) {
     str := "{"
-    test_full_token_output(t, &str, {
+    test_token2_output(t, &str, {
         {.RESERVED_KEYWORD, "{", 1},
     })
 }
 
 
 
-test_basic_token_output :: proc(t: ^testing.T, input: ^string, expected: []Basic_Token) {
+test_token1_output :: proc(t: ^testing.T, input: ^string, expected: []Token1) {
     testing.set_fail_timeout(t, 3 * time.Second)
 
-    basic_tokens := basic_tokenize(input)
+    token1s := tokenize(input)
     defer {
-        for token in basic_tokens {
+        for token in token1s {
             delete(token.text)
         }
-        delete(basic_tokens)
+        delete(token1s)
     }
 
-    testing.expect_value(t, len(basic_tokens), len(expected))
+    testing.expect_value(t, len(token1s), len(expected))
     
-    for basic_token, i in basic_tokens {
+    for token1, i in token1s {
         expected_token := expected[i]
-        testing.expect_value(t, basic_token.type, expected_token.type)
-        testing.expect_value(t, basic_token.text, expected_token.text)
-        testing.expect_value(t, basic_token.line, expected_token.line)
+        testing.expect_value(t, token1.type, expected_token.type)
+        testing.expect_value(t, token1.text, expected_token.text)
+        testing.expect_value(t, token1.line, expected_token.line)
     }
 }
 
-test_full_token_output :: proc(t: ^testing.T, input: ^string, expected: []Full_Token) {
+test_token2_output :: proc(t: ^testing.T, input: ^string, expected: []Token2) {
     testing.set_fail_timeout(t, 3 * time.Second)
 
-    basic_tokens := basic_tokenize(input)
+    token1s := tokenize(input)
     defer {
-        for token in basic_tokens {
+        for token in token1s {
             delete(token.text)
         }
-        delete(basic_tokens)
+        delete(token1s)
     }
 
-    full_tokens := full_token_pass(basic_tokens)
+    token2s := token2_pass(token1s)
     defer {
-        for token in full_tokens {
+        for token in token2s {
             delete(token.text)
         }
-        delete(full_tokens)
+        delete(token2s)
     }
 
-    testing.expect_value(t, len(full_tokens), len(expected))
+    testing.expect_value(t, len(token2s), len(expected))
     
-    for full_token, i in full_tokens {
+    for token2, i in token2s {
         expected_token := expected[i]
-        testing.expect_value(t, full_token.type, expected_token.type)
-        testing.expect_value(t, full_token.text, expected_token.text)
-        testing.expect_value(t, full_token.line, expected_token.line)
+        testing.expect_value(t, token2.type, expected_token.type)
+        testing.expect_value(t, token2.text, expected_token.text)
+        testing.expect_value(t, token2.line, expected_token.line)
     }
 }
