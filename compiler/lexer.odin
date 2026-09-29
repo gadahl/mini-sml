@@ -1,23 +1,10 @@
 package compiler
 
 import "core:fmt"
+import "core:strings"
 import str "core:strings"
+import "core:math"
 
-Token1_Type :: enum {
-    NONE,
-    ALPHANUMERIC,
-    SYMBOLIC,
-    SPECIAL_CHAR,
-    STRING_LIT,
-    COMMENT,
-}
-
-Token1 :: struct {
-    type: Token1_Type,
-    text: string,
-    literal_value: Literal_Value,
-    line: int,
-}
 
 Literal_Value :: union {
     Undefined,
@@ -37,7 +24,45 @@ Lexer :: struct {
     curr_line: int,
 }
 
-tokenize :: proc(script: ^string) -> [dynamic]Token1 {
+
+Token_Type :: enum {
+    RESERVED_KEYWORD,
+    TYPE_VAR,
+    ALPHANUM_IDENT,
+    SYMBOLIC_IDENT,
+    INTEGER_LIT,
+    STRING_LIT,
+    REAL_LIT,
+    COMMENT,
+    WILDCARD,
+}
+
+Token :: struct {
+    type: Token_Type,
+    text: string,
+    literal_value: Literal_Value,
+    line: int,
+}
+
+
+in_char_set :: proc(char_set: string, c: u8) -> bool {
+    return strings.index_byte(char_set, c) >= 0
+}
+
+is_alpha :: proc(c: u8) -> bool {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '\''
+}
+
+is_numeric :: proc(c: u8) -> bool {
+    return c >= '0' && c <= '9'
+}
+
+is_alphanumeric :: proc(c: u8) -> bool {
+    return is_alpha(c) || is_numeric(c) || c == '_'
+}
+
+
+tokenize :: proc(script: ^string) -> [dynamic]Token {
     lexer := Lexer{
         str = script^, 
         done_i = 0, 
@@ -46,25 +71,19 @@ tokenize :: proc(script: ^string) -> [dynamic]Token1 {
         curr_line = 1,
     }
     
-    tokens := make([dynamic]Token1)
+    tokens := make([dynamic]Token)
 
-    loop: for true {
-        token_type := find_next_token(&lexer)
+    for lexer_has_char(&lexer) {
 
-        new_token: Token1
+        consume_spaces(&lexer)
 
-        switch token_type {
-        case .NONE:         break loop
-        case .ALPHANUMERIC: new_token = process_alphanum(&lexer)
-        case .SYMBOLIC:     new_token = process_symbolic(&lexer)
-        case .SPECIAL_CHAR: new_token = process_special_char(&lexer)
-        case .STRING_LIT:   new_token = process_string(&lexer)
-        case .COMMENT:      new_token = process_comment(&lexer)
+        if token, ok := process_next_token(&lexer).(Token); ok {
+            append(&tokens, token)
+            lexer_confirm(&lexer)
         }
-
-        append(&tokens, new_token)
-
-        lexer_confirm(&lexer)
+        else {
+            break
+        }
     }
 
     return tokens
@@ -81,6 +100,9 @@ lexer_advance :: proc(lexer: ^Lexer) -> u8 {
 
     return c
 }
+lexer_peek :: proc(lexer: ^Lexer) -> u8 {
+    return lexer.str[lexer.curr_i]
+}
 lexer_backtrack :: proc(lexer: ^Lexer) {
     lexer.curr_i -= 1
 
@@ -95,35 +117,75 @@ lexer_token_slice :: proc(lexer: ^Lexer) -> string {
     return lexer.str[lexer.done_i : lexer.curr_i]
 }
 
-find_next_token :: proc(lexer: ^Lexer) -> Token1_Type {
+Lexer_State :: struct {i: int, line: int}
+lexer_save :: proc(lexer: ^Lexer) -> Lexer_State {
+    return {lexer.curr_i, lexer.curr_line}
+}
+lexer_load :: proc(state: Lexer_State, lexer: ^Lexer) {
+    lexer.curr_i = state.i
+    lexer.curr_line = state.line
+}
+
+
+process_next_token :: proc(lexer: ^Lexer) -> Maybe(Token) {
+    if t, ok := process_alpha_ident(lexer).(Token); ok {
+        return t
+    }
+    else if t, ok := process_num_token(lexer).(Token); ok {
+        return t
+    }
+    else if t, ok := process_wildcard(lexer).(Token); ok {
+        return t
+    }
+    else if t, ok := process_comment(lexer).(Token); ok {
+        return t
+    }
+    else if t, ok := process_dots(lexer).(Token); ok {
+        return t
+    }
+    else if t, ok := process_symbolic(lexer).(Token); ok {
+        return t
+    }
+    else if t, ok := process_special_char(lexer).(Token); ok {
+        return t
+    }
+    else if t, ok := process_string(lexer).(Token); ok {
+        return t
+    }
+    else {
+        return nil
+    }
+}
+
+consume_spaces :: proc(lexer: ^Lexer) {
 
     for lexer_has_char(lexer) {
         
         c := lexer_advance(lexer)
-
-        if is_alphanumeric(c) {
-            return .ALPHANUMERIC
-        }
-        else if in_char_set(symbolic_chars, c) {
-            return .SYMBOLIC
-        }
-        else if in_char_set(reserved_chars, c) {
-            return .SPECIAL_CHAR
-        }
-        else if c == '"' {
-            return .STRING_LIT
+        
+        if !in_char_set(whitespace_chars, c) {
+            lexer_backtrack(lexer)
+            return
         }
 
         lexer_confirm(lexer)
     }
-
-    return .NONE
 }
 
-process_alphanum :: proc(lexer: ^Lexer) -> Token1 {
+process_alpha_ident :: proc(lexer: ^Lexer) -> Maybe(Token) {
+
+    if lexer_has_char(lexer) {
+
+        c := lexer_advance(lexer)
+
+        if !is_alpha(c) {
+            lexer_backtrack(lexer)
+            return nil
+        }
+    }
 
     for lexer_has_char(lexer) {
-        
+
         c := lexer_advance(lexer)
         
         if !is_alphanumeric(c) {
@@ -132,36 +194,282 @@ process_alphanum :: proc(lexer: ^Lexer) -> Token1 {
         }
     }
 
-    return Token1{
-        type = .ALPHANUMERIC, 
-        text = str.clone(lexer_token_slice(lexer)), 
-        literal_value = Undefined{},
-        line = lexer.done_line,
-    }
-}
+    text := str.clone(lexer_token_slice(lexer))
 
-process_special_char :: proc(lexer: ^Lexer) -> Token1 {
-    // check for comment
-    if lexer.str[lexer.curr_i - 1] == '(' {
-        if lexer_has_char(lexer) {
-            if lexer_advance(lexer) == '*' {
-                return process_comment(lexer)
+    for keyword in alpha_keywords {
+        if strings.compare(text, keyword) == 0 {
+            return Token{
+                type = .RESERVED_KEYWORD, 
+                text = text, 
+                literal_value = No_Value{}, 
+                line = lexer.done_line
             }
-            lexer_backtrack(lexer)
         }
     }
 
-    // otherwise always is 1 character
-    return Token1{
-        type = .SPECIAL_CHAR, 
-        text = str.clone(lexer_token_slice(lexer)),
-        literal_value = No_Value{}, 
+    return Token{
+        type = .ALPHANUM_IDENT,
+        text = text,
+        literal_value = No_Value{},
         line = lexer.done_line,
     }
 }
 
-process_symbolic :: proc(lexer: ^Lexer) -> Token1 {
 
+process_char :: proc(target: u8, lexer: ^Lexer) -> Maybe(u8) {
+
+    if !lexer_has_char(lexer) do return nil
+
+    c := lexer_advance(lexer)
+    if c != target {
+        lexer_backtrack(lexer)
+        return nil
+    }
+    return c
+}
+
+process_num_token :: proc(lexer: ^Lexer) -> Maybe(Token) {
+    type: Token_Type
+    literal := process_num(lexer)
+
+    #partial switch _ in literal {
+
+    case i32: 
+        type = .INTEGER_LIT
+
+    case f32: 
+        type = .REAL_LIT
+
+    case:
+        return nil
+    }
+
+    return Token{
+        type = type, 
+        text = str.clone(lexer_token_slice(lexer)), 
+        literal_value = literal,
+        line = lexer.done_line,
+    }
+}
+
+process_num :: proc(lexer: ^Lexer) -> Literal_Value {
+
+    state := lexer_save(lexer)
+
+    if decimal, ok := process_decimal(lexer).(f32); ok {
+
+        if _, ok := process_char('E', lexer).(u8); ok {
+
+            if exp, ok := process_int(lexer).(i32); ok {
+
+                return decimal * math.pow10(f32(exp));
+            }
+            else {
+                fmt.println("Malformed exponential notation")
+            }
+        }
+        else {
+            return decimal
+        }
+    }
+    else if n, ok := process_int(lexer).(i32); ok {
+
+        if _, ok := process_char('E', lexer).(u8); ok {
+
+            if exp, ok := process_int(lexer).(i32); ok {
+
+                return f32(n) * math.pow10(f32(exp));
+            }
+            else {
+                fmt.println("Malformed exponential notation")
+            }
+        }
+        else {
+            return n
+        }
+    }
+
+    lexer_load(state, lexer)
+    return Undefined{}
+}
+
+// takes XXX and YYYY and gives XXX.YYYY
+combine_to_float :: proc(whole: i32, fraction: Digits) -> f32 {
+    result := f32(fraction.value)
+    for i in 0..<fraction.length {
+        result *= 0.1
+    }
+    return f32(whole) + result
+}
+
+// Gets XXX.YYYY (or ~XXX.YYYY or 0.YYYY or ~0.YYYY)
+process_decimal :: proc(lexer: ^Lexer) -> Maybe(f32) {
+
+    state := lexer_save(lexer)
+
+    sign: f32 = 1
+    if _, ok := process_char('~', lexer).(u8); ok {
+        sign = -1
+    }
+    
+    if whole, ok := process_unsigned_int(lexer).(i32); ok {
+
+        if _, ok := process_char('.', lexer).(u8); ok {
+            
+            if frac, ok := process_digits(lexer).(Digits); ok {
+                
+                if frac.length > 0 {
+                    return sign * combine_to_float(whole, frac)
+                }
+            }
+        }
+    }
+
+    lexer_load(state, lexer)
+    return nil
+}
+
+// gets ~XXX or XXX or ~0 or 0
+process_int :: proc(lexer: ^Lexer) -> Maybe(i32) {
+    state := lexer_save(lexer)
+
+    sign: i32 = 1
+    if _, ok := process_char('~', lexer).(u8); ok {
+        sign = -1
+    }
+    
+    if n, ok := process_unsigned_int(lexer).(i32); ok {
+        return sign * n
+    }
+
+    lexer_load(state, lexer)
+    return nil
+}
+
+Digits :: struct {
+    value: i32,
+    length: i32,
+}
+// gets YYYY (can start with 0)
+process_digits :: proc(lexer: ^Lexer) -> Maybe(Digits) {
+
+    result: i32 = 0
+    count: i32 = 0
+    for lexer_has_char(lexer) {
+        c := lexer_advance(lexer)
+        if c < '0' || c > '9' {
+            lexer_backtrack(lexer)
+            break
+        }
+
+        digit := i32(c - '0')
+        result = result * 10 + digit
+        count += 1
+        // TODO: check for integer literals that are too big? (-2^31 <= n < 2^31)
+    }
+
+    return Digits{result, count}
+}
+
+
+// gets `0` or `[1-9][0-9]*`
+process_unsigned_int :: proc(lexer: ^Lexer) -> Maybe(i32) {
+
+    state := lexer_save(lexer)
+
+    if _, ok := process_char('0', lexer).(u8); ok {
+        c := lexer_peek(lexer)
+        if !is_alphanumeric(c) do return 0
+    }
+    else if digits, ok := process_digits(lexer).(Digits); ok { 
+        if digits.length > 0 {
+            return digits.value
+        }       
+    }
+
+    lexer_load(state, lexer)
+    return nil
+}
+
+process_wildcard :: proc(lexer: ^Lexer) -> Maybe(Token) {
+
+    if lexer_has_char(lexer) && lexer_peek(lexer) == '_' {
+
+        lexer_advance(lexer)
+
+        if lexer_has_char(lexer) && is_alphanumeric(lexer_peek(lexer)) {
+
+            lexer_backtrack(lexer)
+            return nil
+        }
+
+        return Token{
+            type = .WILDCARD,
+            text = str.clone(lexer_token_slice(lexer)),
+            literal_value = No_Value{}, 
+            line = lexer.done_line,
+        }
+        
+    }
+
+    return nil
+}
+
+process_dots :: proc(lexer: ^Lexer) -> Maybe(Token) {
+
+    count := 0
+    for lexer_has_char(lexer) {
+        
+        c := lexer_peek(lexer)
+        
+        if c == '.' {
+            lexer_advance(lexer)
+            count += 1
+        }
+        else do break
+    }
+    if count == 0 {
+        return nil
+    }
+    else if count == 1 || count == 3 {
+        return Token{
+            type = .RESERVED_KEYWORD, 
+            text = str.clone(lexer_token_slice(lexer)),
+            literal_value = No_Value{}, 
+            line = lexer.done_line,
+        }
+    }
+    else {
+        fmt.printfln("Error: cannot parse %d sequential '.' characters", count)
+        return nil
+    }
+}
+
+process_special_char :: proc(lexer: ^Lexer) -> Maybe(Token) {
+    
+    if lexer_has_char(lexer) {
+
+        c := lexer_advance(lexer) 
+
+        if in_char_set(reserved_chars, c) {
+            
+            return Token{
+                type = .RESERVED_KEYWORD, 
+                text = str.clone(lexer_token_slice(lexer)),
+                literal_value = No_Value{}, 
+                line = lexer.done_line,
+            }
+        } 
+
+        lexer_backtrack(lexer)
+    }
+
+    return nil
+}
+
+process_symbolic :: proc(lexer: ^Lexer) -> Maybe(Token) {
+
+    empty := true
     for lexer_has_char(lexer) {
         
         c := lexer_advance(lexer)
@@ -170,50 +478,88 @@ process_symbolic :: proc(lexer: ^Lexer) -> Token1 {
             lexer_backtrack(lexer)
             break
         }
+        empty = false
+    }
+    if empty do return nil
+
+    text := str.clone(lexer_token_slice(lexer))
+
+    for keyword in symbolic_keywords {
+        if strings.compare(text, keyword) == 0 {
+            return Token{
+                type = .RESERVED_KEYWORD, 
+                text = text, 
+                literal_value = No_Value{}, 
+                line = lexer.done_line
+            }
+        }
     }
 
-    return Token1{
-        type = .SYMBOLIC, 
-        text = str.clone(lexer_token_slice(lexer)), 
+    return Token{
+        type = .SYMBOLIC_IDENT,
+        text = text,
         literal_value = No_Value{},
         line = lexer.done_line,
     }
 }
 
-process_comment :: proc(lexer: ^Lexer) -> Token1 {
+process_comment :: proc(lexer: ^Lexer) -> Maybe(Token) {
 
-    process_comment_rec(lexer)
-
-    return Token1{
-        type = .COMMENT, 
-        text = str.clone(lexer_token_slice(lexer)), 
-        literal_value = No_Value{},
-        line = lexer.done_line,
+    if process_comment_rec(lexer) {
+        return Token{
+            type = .COMMENT, 
+            text = str.clone(lexer_token_slice(lexer)), 
+            literal_value = No_Value{},
+            line = lexer.done_line,
+        }
+    }
+    else {
+        return nil
     }
 }
 
-// this function expects to start just inside the comment and finishes just outside it
-process_comment_rec :: proc(lexer: ^Lexer) {
-    prev_c: u8 = ' '
+process_comment_rec :: proc(lexer: ^Lexer) -> bool {
 
-    for lexer_has_char(lexer) {
-        
-        c := lexer_advance(lexer)
-        
-        if prev_c == '*' && c == ')' {
-            return
-        }
-        if prev_c == '(' && c == '*' {
-            process_comment_rec(lexer)
-        }
+    state := lexer_save(lexer)
 
-        prev_c = c
+    if _, ok := process_char('(', lexer).(u8); ok {
+        
+        if _, ok := process_char('*', lexer).(u8); ok {
+            
+            for lexer_has_char(lexer) {
+
+                state := lexer_save(lexer)
+                if _, ok := process_char('*', lexer).(u8); ok {
+
+                    if _, ok := process_char(')', lexer).(u8); ok {
+
+                        return true
+                    }
+                }
+                lexer_load(state, lexer)
+
+                if process_comment_rec(lexer) {
+                    continue
+                }
+
+                lexer_advance(lexer)
+            }
+
+            fmt.printfln(`Missing end of comment starting at line %d`, lexer.done_line)
+
+            return true
+        }
     }
 
-    fmt.printfln(`Missing end of comment starting at line %d`, lexer.done_line)
+    lexer_load(state, lexer)
+    return false
 }
 
-process_string :: proc(lexer: ^Lexer) -> Token1 {
+process_string :: proc(lexer: ^Lexer) -> Maybe(Token) {
+
+    if _, ok := process_char('"', lexer).(u8); ok {} else {
+        return nil
+    }
 
     Escape_Status :: enum {
         NONE,
@@ -322,7 +668,7 @@ process_string :: proc(lexer: ^Lexer) -> Token1 {
         }
     }
 
-    return Token1{
+    return Token{
         type = .STRING_LIT, 
         text = str.clone(lexer_token_slice(lexer)), 
         literal_value = str.to_string(builder),
