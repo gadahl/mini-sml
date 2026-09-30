@@ -1,4 +1,4 @@
-package compiler
+package lexer
 
 import "core:testing"
 import "core:time"

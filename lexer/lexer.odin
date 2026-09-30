@@ -1,7 +1,6 @@
-package compiler
+package lexer
 
 import "core:fmt"
-import "core:strings"
 import str "core:strings"
 import "core:math"
 
@@ -46,7 +45,7 @@ Token :: struct {
 
 
 in_char_set :: proc(char_set: string, c: u8) -> bool {
-    return strings.index_byte(char_set, c) >= 0
+    return str.index_byte(char_set, c) >= 0
 }
 
 is_alpha :: proc(c: u8) -> bool {
@@ -183,6 +182,9 @@ process_alpha_ident :: proc(lexer: ^Lexer) -> Maybe(Token) {
             return nil
         }
     }
+    else {
+        return nil
+    }
 
     for lexer_has_char(lexer) {
 
@@ -197,7 +199,7 @@ process_alpha_ident :: proc(lexer: ^Lexer) -> Maybe(Token) {
     text := str.clone(lexer_token_slice(lexer))
 
     for keyword in alpha_keywords {
-        if strings.compare(text, keyword) == 0 {
+        if str.compare(text, keyword) == 0 {
             return Token{
                 type = .RESERVED_KEYWORD, 
                 text = text, 
@@ -256,11 +258,11 @@ process_num :: proc(lexer: ^Lexer) -> Literal_Value {
 
     state := lexer_save(lexer)
 
-    if decimal, ok := process_decimal(lexer).(f32); ok {
+    if decimal, ok := process_decimal(lexer).?; ok {
 
-        if _, ok := process_char('E', lexer).(u8); ok {
+        if _, ok := process_char('E', lexer).?; ok {
 
-            if exp, ok := process_int(lexer).(i32); ok {
+            if exp, ok := process_int(lexer).?; ok {
 
                 return decimal * math.pow10(f32(exp));
             }
@@ -272,11 +274,11 @@ process_num :: proc(lexer: ^Lexer) -> Literal_Value {
             return decimal
         }
     }
-    else if n, ok := process_int(lexer).(i32); ok {
+    else if n, ok := process_int(lexer).?; ok {
 
-        if _, ok := process_char('E', lexer).(u8); ok {
+        if _, ok := process_char('E', lexer).?; ok {
 
-            if exp, ok := process_int(lexer).(i32); ok {
+            if exp, ok := process_int(lexer).?; ok {
 
                 return f32(n) * math.pow10(f32(exp));
             }
@@ -308,13 +310,13 @@ process_decimal :: proc(lexer: ^Lexer) -> Maybe(f32) {
     state := lexer_save(lexer)
 
     sign: f32 = 1
-    if _, ok := process_char('~', lexer).(u8); ok {
+    if _, ok := process_char('~', lexer).?; ok {
         sign = -1
     }
     
-    if whole, ok := process_unsigned_int(lexer).(i32); ok {
+    if whole, ok := process_unsigned_int(lexer).?; ok {
 
-        if _, ok := process_char('.', lexer).(u8); ok {
+        if _, ok := process_char('.', lexer).?; ok {
             
             if frac, ok := process_digits(lexer).(Digits); ok {
                 
@@ -334,11 +336,11 @@ process_int :: proc(lexer: ^Lexer) -> Maybe(i32) {
     state := lexer_save(lexer)
 
     sign: i32 = 1
-    if _, ok := process_char('~', lexer).(u8); ok {
+    if _, ok := process_char('~', lexer).?; ok {
         sign = -1
     }
     
-    if n, ok := process_unsigned_int(lexer).(i32); ok {
+    if n, ok := process_unsigned_int(lexer).?; ok {
         return sign * n
     }
 
@@ -377,7 +379,7 @@ process_unsigned_int :: proc(lexer: ^Lexer) -> Maybe(i32) {
 
     state := lexer_save(lexer)
 
-    if _, ok := process_char('0', lexer).(u8); ok {
+    if _, ok := process_char('0', lexer).?; ok {
         c := lexer_peek(lexer)
         if !is_alphanumeric(c) do return 0
     }
@@ -485,7 +487,7 @@ process_symbolic :: proc(lexer: ^Lexer) -> Maybe(Token) {
     text := str.clone(lexer_token_slice(lexer))
 
     for keyword in symbolic_keywords {
-        if strings.compare(text, keyword) == 0 {
+        if str.compare(text, keyword) == 0 {
             return Token{
                 type = .RESERVED_KEYWORD, 
                 text = text, 
@@ -522,16 +524,16 @@ process_comment_rec :: proc(lexer: ^Lexer) -> bool {
 
     state := lexer_save(lexer)
 
-    if _, ok := process_char('(', lexer).(u8); ok {
+    if _, ok := process_char('(', lexer).?; ok {
         
-        if _, ok := process_char('*', lexer).(u8); ok {
+        if _, ok := process_char('*', lexer).?; ok {
             
             for lexer_has_char(lexer) {
 
                 state := lexer_save(lexer)
-                if _, ok := process_char('*', lexer).(u8); ok {
+                if _, ok := process_char('*', lexer).?; ok {
 
-                    if _, ok := process_char(')', lexer).(u8); ok {
+                    if _, ok := process_char(')', lexer).?; ok {
 
                         return true
                     }
@@ -557,7 +559,7 @@ process_comment_rec :: proc(lexer: ^Lexer) -> bool {
 
 process_string :: proc(lexer: ^Lexer) -> Maybe(Token) {
 
-    if _, ok := process_char('"', lexer).(u8); ok {} else {
+    if _, ok := process_char('"', lexer).?; ok {} else {
         return nil
     }
 
