@@ -14,3 +14,4 @@ This repository contains my semester project for the Computer Science Senior Des
 | ------------------------------- | ------- |
 | [Sept. 17](updates/26_09_17.md) | Made two-pass lexer to group types of characters and then categorize them into specific tokens. |
 | [Sept. 24](updates/26_09_24.md) | Added string and comment parsing, switched to byte-level reading, and built a test suite for the lexer. |
+| [Oct. 1](updates/26_10_01.md)   | Added number parsing, rewrote parts of lexer to use try-backtrack pattern. |
