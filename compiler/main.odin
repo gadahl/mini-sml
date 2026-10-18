@@ -13,6 +13,24 @@ val y: real = 1E~9;
 val z: real = ~540.01E6;
 val rect = {x= ~1.0, y=0.0, w=3.5, h=6.0}; `
 
+/* `
+~1~2;
+~3.~4;
+5.~6;
+7e8;
+.99;
+12.;
+3.4.5;
+6E7.8;
+1E2E3;
+4x;
+` */
+
+// `fun append_marks str = let
+//     val cs = explode str;
+//     val cs' = cs @ "...?!";
+// in implode cs;`
+
     tokens := lexer.tokenize(&script)
     defer delete_tokens(tokens)
 

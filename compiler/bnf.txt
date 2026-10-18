@@ -1,0 +1,152 @@
+
+<decls> ::=
+  <decl> (";" <decl>)*
+
+<decl> ::=
+  "val" <val_binds>
+| "fun" <fun_binds>
+| "local" <decls> "in" <decls> "end"
+| "infix" <infix_details>
+| "infixr" <infix_details>
+
+<val_binds> ::=
+  <val_bind> ("and" <val_bind>)*
+
+<val_bind> ::=
+  "rec"? <pattern> "=" <expr>
+
+<fun_binds> ::=
+  <fun_bind> ("and" <fun_bind>)*
+
+<fun_bind> ::=
+  <fun_arm> ("|" <fun_arm>)*
+
+<fun_arm> ::=
+  <var> (<atomic_pattern>)* (":" <type>)? "=" <expr>
+| <atomic_pattern> <infix_var> <atomic_pattern> (":" <type>)? "=" <expr>
+
+<infix_details> ::=
+  <literal>? <ident> (<ident>)*
+
+
+<pattern> ::=
+  <infix_pattern> (":" <type>)*
+| <var> (":" <type>)* "as" <pattern>
+
+<infix_pattern> ::=
+  <constructed_pattern> (<infix_ctor> <constructed_pattern>)*
+
+<constructed_pattern> ::=
+  <atomic_pattern>
+| <ctor> <atomic_pattern>
+| <exc_ctor> <atomic_pattern>
+
+<atomic_pattern> ::=
+  <literal>
+| <var>
+| <ctor>
+| <exc_ctor>
+| "(" <pattern> ")"
+| "(" <tuple_contents_pattern>? ")"
+| "[" <list_contents_pattern>? "]"
+| "{" <pattern_fields>? "..."? "}"
+
+<pattern_fields> ::=
+  <pattern_field> ("," <pattern_field>)*
+
+<pattern_field> ::=
+  <label> "=" <pattern>
+| <ident> (":" <type>)? ("as" <pattern>)?
+
+<tuple_contents_pattern> ::=
+  <pattern> "," <pattern> ("," <pattern>)*
+
+<list_contents_pattern> ::=
+  <pattern> ("," <pattern>)*
+
+
+<expr> ::=
+  <handled_expr>
+| "raise" <expr>
+| "if" <expr> "then" <expr> "else" <expr>
+| "while" <expr> "do" <expr>
+| "case" <expr> "of" <match>
+| "fn" <match>
+
+<handled_expr> ::=
+  <orelse_expr> ("handle" <match>)?
+
+<orelse_expr> ::=
+  <andalso_expr> ("orelse" <orelse_expr>)?
+
+<andalso_expr> ::=
+  <typed_expr> ("andalso" <andalso_expr>)?
+
+<typed_expr> ::=
+  <infix_expr>  (":" <type>)?
+
+<infix_expr> ::=
+  <appl_expr> (<infix_ident> <appl_expr>)*
+
+<appl_expr> ::=
+  <atomic_expr> (<atomic_expr>)*
+
+<atomic_expr> ::=
+  <literal>
+| <var>
+| <ctor>
+| <exc_ctor>
+| "{" <record_fields>? "}"
+| "[" <list_contents>? "]"
+| "(" <in_parens>? ")"
+
+<record_fields> ::=
+  <record_field> ("," <record_field>)*
+
+<record_field> ::=
+  <label> "=" <expr>
+
+<list_contents> ::=
+  <expr> ("," <expr>)*
+
+<in_parens> ::=
+  <expr> (("," <expr>)* | (";" <expr>)*)
+
+<match> ::=
+  <match_rule> ("|" <match_rule>)*
+
+<match_rule> ::=
+  <pattern> "=>" <expr>
+
+
+<type> ::=
+  <tuple_type> ("->" <tuple_type>)*
+
+<tuple_type> ::=
+  <constructed_type> ("*" <constructed_type>)*
+
+<constructed_type> ::=
+  <atomic_type> (<atomic_type>* <type_ctor>)?
+
+<atomic_type> ::=
+  <type_var>
+| "{" <type_fields>? "}"
+| "(" <type> ")"
+
+<type_fields> ::=
+  <type_field> ("," <type_field>)*
+
+<type_field> ::=
+  <label> ":" <type>
+
+<literal> ::= "lit"
+<ctor> ::= "ctor"
+<exc_ctor> ::= "exc_ctor"
+<type_var> ::= "type_var"
+<type_ctor> ::= "type_ctor"
+<label> ::= "label"
+<ident> ::= "ident"
+<var> ::= "var"
+<infix_var> ::= "$"
+<infix_ctor> ::= "::"
+<infix_ident> ::= "%%"
