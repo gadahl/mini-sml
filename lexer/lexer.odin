@@ -34,6 +34,7 @@ Token_Type :: enum {
     REAL_LIT,
     COMMENT,
     WILDCARD,
+    EOF,
 }
 
 Token :: struct {
@@ -84,6 +85,13 @@ tokenize :: proc(script: ^string) -> [dynamic]Token {
             break
         }
     }
+    
+    append(&tokens, Token{
+        type = .EOF,
+        text = str.clone(""),
+        literal_value = No_Value{},
+        line = lexer.curr_line,
+    })
 
     return tokens
 }
