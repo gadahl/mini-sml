@@ -1,6 +1,7 @@
-package compiler
+package tree_builder
 import "core:fmt"
 
+// Represents grammar terms that can be further decomposed
 Nonterminal :: enum {
     DECLS, DECLS_1, DECL, VAL_BINDS, VAL_BINDS_1, VAL_BIND,
     FUN_BINDS, FUN_BINDS_1, FUN_BIND, FUN_BIND_1, FUN_ARM, FUN_ARM_1, FUN_ARGS, 
@@ -22,13 +23,16 @@ Nonterminal :: enum {
     TYPE_FIELDS, TYPE_FIELDS_1, TYPE_FIELD,
 }
 
+// Represents grammar terms that cannot be further decomposed
 Terminal :: enum {
     lpar, rpar, lsqr, rsqr, lcur, rcur,
     pipe, colon, equal, semi, comma, hash,
     ellipsis, maps_to, fn_type,
 
-    _rec, _val, _fun, _and, _local, _let, _in, _end, _infix, _infixr,
-    _andalso, _orelse, _handle, _raise, _if, _then, _else,
+    _rec, _val, _fun, _and, _local, 
+    _let, _in, _end, _infix, _infixr,
+    _andalso, _orelse, _handle, _raise, 
+    _if, _then, _else,
     _while, _do, _case, _of, _fn, _as,
 
     alpha_ident_, sym_ident_, literal_,
@@ -36,6 +40,7 @@ Terminal :: enum {
     EOF, EPSILON
 }
 
+// A mapping from a terminal to the string that it appears as
 terminal_strings: [Terminal]string = {
     .lpar="(", .rpar=")", .lsqr="[", .rsqr="]", .lcur="{", .rcur="}",
     .pipe="|", .colon=":", .equal="=", .semi=";", .comma=",", .hash="#",
@@ -49,35 +54,84 @@ terminal_strings: [Terminal]string = {
 
     .alpha_ident_="<alpha_ident>", .sym_ident_="<sym_ident>", .literal_="<literal>",
 
-    .EOF="<eof>", .EPSILON="<epsilon>"
+    .EOF="<EOF>", .EPSILON="ε"
 }
 
+// Represents all grammar terms
 Symbol :: union { Terminal, Nonterminal }
 
+// One option in a nonterminal decomposition. If the next terminal is in `start`, then this option should be chosen.
 Production :: struct {
     seq: []Symbol,
     start: ^map[Terminal]struct{},
 }
 
+// The list of productions that can be used to decompose each nonterminal
 rule_table: map[Nonterminal]([]Production)
+// Maps each nonterminal to the set of terminals (or ε meaning "nt can be empty") that can appear FIRST in it
 first_table: map[Nonterminal](^map[Terminal]struct{})
+// Maps each nonterminal to the set of terminals (or EOF) that can directly FOLLOW it
 follow_table: map[Nonterminal](^map[Terminal]struct{})
 
-main :: proc() {
+// Sets up `rule_table`
+init :: proc() {
     rule_table = make(map[Nonterminal]([]Production))
     first_table = make(map[Nonterminal](^map[Terminal]struct{}))
     follow_table = make(map[Nonterminal](^map[Terminal]struct{}))
     
     populate_table()
+    calc_first()
+    calc_follow()
+    calc_start()
+}
 
+// Cleans up allocations after `rule_table` is done being used
+uninit :: proc() {
+    for nt, prod_list in rule_table {
+        for prod in prod_list {
+            delete(prod.seq)
+            delete(prod.start^)
+        }
+        delete(prod_list)
+    }
+    delete(rule_table)
+
+    // could be deleted after start set is computed
+    for nt, first_set in first_table {
+        delete(first_set^)
+    }
+    delete(first_table)
+
+    // could be deleted after start set is computed
+    for nt, follow_set in follow_table {
+        delete(follow_set^)
+    }
+    delete(follow_table)
+}
+
+main :: proc() {
+
+    init()
+    defer uninit()
+
+    //print_rules()
+    //print_start_sets()
+    print_start_set_conflicts()
+}
+
+print_rules :: proc() {
     for nt in Nonterminal {
         if nt in rule_table && len(rule_table[nt]) > 0 {
             fmt.println(nt)
             for prod in rule_table[nt] {
                 fmt.print("  ")
                 if len(prod.seq) == 0 {
+                    fmt.print("ε")
+                    /*
+                    // prints epsilon character for windows terminal code page 437
                     eps := []u8{0xEE}
                     fmt.print(string(eps))
+                    */
                 }
                 for symbol in prod.seq {
                     switch sym in symbol {
@@ -92,17 +146,9 @@ main :: proc() {
             fmt.println()
         }
     }
-    
-    //fmt.println("\n-------< FIRST TABLE >-------")
-    calc_first()
-    //print_result(&first_table)
+}
 
-    //fmt.println("\n------< FOLLOW TABLE >-------")
-    calc_follow()
-    //print_result(&follow_table)
-
-    fmt.println("\n-------< START TABLE >-------")
-    calc_start()
+print_start_sets :: proc() {
     for nt in Nonterminal {
         if nt in rule_table && len(rule_table[nt]) > 0 {
             fmt.println(nt)
@@ -120,6 +166,43 @@ main :: proc() {
     }
 }
 
+print_start_set_conflicts :: proc() {
+    for nt in Nonterminal {
+        if nt not_in rule_table do continue
+        if len(rule_table[nt]) == 0 do continue 
+        
+        has_conflict := false
+        terminals_seen := make(map[Terminal]struct{}, context.temp_allocator)
+
+        outer: for prod in rule_table[nt] {
+            for t in prod.start {
+                if t in terminals_seen || t == .EPSILON {
+                    has_conflict = true
+                    break outer
+                }
+                else {
+                    terminals_seen[t] = struct{}{}
+                }
+            }
+        }
+
+        if !has_conflict do continue
+
+        fmt.println(nt)
+        for prod in rule_table[nt] {
+            fmt.println("-", prod.seq)
+            fmt.print("        ")
+            for t in Terminal {
+                if t not_in prod.start do continue
+                fmt.print(terminal_strings[t], " ", sep="")
+            }
+            fmt.println()
+        }
+        fmt.println()
+    
+    }
+}
+
 set_insert :: proc(set: ^map[Terminal]struct{}, key: Terminal, making_progress: ^bool) {
     _, _, existed := map_upsert(set, key, struct{}{})
     if making_progress != nil && !existed do making_progress^ = true
@@ -130,20 +213,39 @@ calc_first :: proc() {
         ts := new(map[Terminal]struct{})
         map_insert(&first_table, nt, ts)
     }
+
+    // if this is true, print debug info
+    debug := false
+    i := 0
     
     making_progress := true
     for making_progress {
         making_progress = false
+
+        if debug && i > 0 {
+            fmt.println()
+            fmt.printfln("------------------------PASS %d-----------------------", i)
+        }
         
-        for nt, first_set in first_table {
+        // Loop backwards from max(Nonterminal) down to min(Nonterminal)
+        for i := int(max(Nonterminal)); i >= int(min(Nonterminal)); i -= 1 {
+            nt := Nonterminal(i)
+            if nt not_in first_table do continue
+
+            first_set := first_table[nt]
             rule := rule_table[nt]
             if len(rule) == 0 do continue
-            // fmt.println(nt)
-            // fmt.println(first_set)
+
+            if debug && i > 0 {
+                fmt.printf("%24s:    ", nt)
+                for t in first_set {
+                    fmt.printf("%s ", terminal_strings[t])
+                }
+                fmt.println()
+            }
 
             for production in rule {
 
-                //fmt.println("  -", production.seq)
                 trailing := true
 
                 seqloop: for symbol in production.seq {
@@ -169,10 +271,9 @@ calc_first :: proc() {
                     set_insert(first_set, .EPSILON, &making_progress)
                 }
             }
-            
-            // fmt.println(first_set)
-            // fmt.println()
         }
+
+        i += 1
     }
 }
 
@@ -182,20 +283,39 @@ calc_follow :: proc() {
         map_insert(&follow_table, nt, ts)
     }
 
+    // if this is true, print debug info
+    debug := false
+    i := 0
+
     making_progress := true
     set_insert(follow_table[.DECLS], .EOF, &making_progress)
 
-    trailer := make(map[Terminal]struct{})
-    defer delete(trailer)
+    trailer := make(map[Terminal]struct{}, context.temp_allocator)
 
     for making_progress {
         making_progress = false
-        
-        for nt, follow_set in follow_table {
+
+        if debug && i > 0  {
+            fmt.println()
+            fmt.printfln("------------------------PASS %d-----------------------", i)
+        }
+
+        // Loop forwards from min(Nonterminal) up to max(Nonterminal)
+        for i := int(min(Nonterminal)); i <= int(max(Nonterminal)); i += 1 {
+            nt := Nonterminal(i)
+            if nt not_in follow_table do continue
+
+            follow_set := follow_table[nt]
             rule := rule_table[nt]
             if len(rule) == 0 do continue
-            // fmt.println(nt)
-            // fmt.println(follow_set)
+
+            if debug && i > 0 {
+                fmt.printf("%24s:    ", nt)
+                for t in follow_set {
+                    fmt.printf("%s ", terminal_strings[t])
+                }
+                fmt.println()
+            }
 
             for production in rule {
 
@@ -204,7 +324,7 @@ calc_follow :: proc() {
                     set_insert(&trailer, trailing_terminal, nil)
                 }
 
-                //fmt.println("  -", production.seq)
+                // fmt.println("  -", production.seq)
 
                 seqloop: for i in 0..<len(production.seq) {
                     symbol := production.seq[len(production.seq) - 1 - i]
@@ -235,68 +355,65 @@ calc_follow :: proc() {
                 }
             }
         }
+
+        i += 1
     }
 }
 
 calc_start :: proc() {
     for nt, prods in rule_table {
         for &prod in prods {
-            prod.start = new(map[Terminal]struct{})
 
-            // if EVERY symbol in `seq` contains \eps, then `FIRST(seq)` contains \eps
+            // let seq = b1,b2,b3,b4,...,bn,ε
+            //
+            // FIRST(seq) =
+            //      if b1 can't derive ε, then b1, else (b1 union
+            //          if b2 can't derive ε, then b2, else (b2 union ... ))
+            //
+            // if EVERY bi can derive ε, then FIRST(seq) contains ε
+            seq_first := new(map[Terminal]struct{})
             can_be_empty := true
             seqloop: for symbol in prod.seq {
+
                 switch sym in symbol {
                 case Terminal: 
-                    if sym != .EPSILON{
+                    if sym != .EPSILON {
+                        set_insert(seq_first, sym, nil)
                         can_be_empty = false
-                        break seqloop
                     }
                 case Nonterminal:
-                    if .EPSILON not_in first_table[sym] {
-                        can_be_empty = false
-                        break seqloop
-                    }
-                }
-            }
-
-            if can_be_empty {
-                // START(A -> seq) = (FIRST(seq) - \eps) U FOLLOW(A)
-                if len(prod.seq) > 0 {
-                    first_sym := prod.seq[0]
-                    if sym, ok := first_sym.(Nonterminal); ok {
-                        for leading_terminal in first_table[sym] {
-                            if leading_terminal != .EPSILON {
-                                set_insert(prod.start, leading_terminal, nil)
-                            }
+                    can_be_empty = false
+                    for nt_first in first_table[sym] {
+                        if nt_first == .EPSILON {
+                            can_be_empty = true
+                        }
+                        else {
+                            set_insert(seq_first, nt_first, nil)
                         }
                     }
                 }
-                
+
+                if !can_be_empty do break seqloop
+            }
+
+            // START(A -> seq) = (FIRST(seq) - ε)
+            prod.start = seq_first
+
+            if can_be_empty {
+                // START(A -> seq) U= FOLLOW(A)
                 for following_terminal in follow_table[nt] {
                     set_insert(prod.start, following_terminal, nil)
-                }
-            }
-            else {
-                // START(A -> seq) = FIRST(seq)
-                first_sym := prod.seq[0]
-                switch sym in first_sym {
-                case Terminal:
-                    set_insert(prod.start, sym, nil)
-                case Nonterminal:
-                    for leading_terminal in first_table[sym] {
-                        set_insert(prod.start, leading_terminal, nil)
-                    }
                 }
             }
         }
     }
 }
 
-print_result :: proc(set: ^map[Nonterminal](^map[Terminal]struct{})) {
+// displays a map from `Nonterminal` to (set of `Terminal`)
+print_result :: proc(m: ^map[Nonterminal](^map[Terminal]struct{})) {
     for nt in Nonterminal {
-        if nt in set && len(set[nt]) > 0 {
-            fmt.println(nt, "->", set[nt])
+        if nt in m && len(m[nt]) > 0 {
+            fmt.println(nt, "->", m[nt])
         }
     }
 }
@@ -312,7 +429,7 @@ insert_rule :: proc(table: ^map[Nonterminal]([]Production), nt: Nonterminal, rul
             new_seq[j] = seq[j]
         }
 
-        new_rule[i] = Production{seq=new_seq}
+        new_rule[i] = Production{seq=new_seq, start=nil}
     }
     
     map_insert(table, nt, new_rule)
@@ -324,7 +441,7 @@ populate_table :: proc() {
         {.DECL, .DECLS_1},
     })
     insert_rule(&rule_table, Nonterminal.DECLS_1, {
-        {.comma, .DECL, .DECLS_1},
+        {.semi, .DECL, .DECLS_1},
         {}, 
     })
     insert_rule(&rule_table, Nonterminal.DECL, {
@@ -333,6 +450,7 @@ populate_table :: proc() {
         {._local, .DECLS, ._in, .DECLS, ._end},
         {._infix, .INFIX_DETAILS},
         {._infixr, .INFIX_DETAILS},
+        {},
     })
     insert_rule(&rule_table, Nonterminal.VAL_BINDS, {
         {.VAL_BIND, .VAL_BINDS_1},
@@ -511,6 +629,8 @@ populate_table :: proc() {
         {.lpar, .PAREN_CONTENTS, .rpar},
         {.lsqr, .LIST_CONTENTS, .rsqr},
         {.lcur, .RECORD_FIELDS, .rcur},
+        {.hash, .alpha_ident_},
+        {._let, .DECLS, ._in, .EXPR, ._end},
     })
     insert_rule(&rule_table, Nonterminal.PAREN_CONTENTS, {
         {.EXPR, .PAREN_CONTENTS_1},

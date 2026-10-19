@@ -2,16 +2,20 @@ package compiler
 
 import "core:fmt"
 import "../lexer"
+import "../tree_builder"
 
 
 
 main :: proc() {
+    tree_builder.init()
+    defer tree_builder.uninit()
+
     script := 
-`val (m, n): int * int = (123, ~25);
-val x: real = 0.05;
-val y: real = 1E~9;
-val z: real = ~540.01E6;
-val rect = {x= ~1.0, y=0.0, w=3.5, h=6.0}; `
+// `val (m, n): int * int = (123, ~25);
+// val x: real = 0.05;
+// val y: real = 1E~9;
+// val z: real = ~540.01E6;
+// val rect = {x= ~1.0, y=0.0, w=3.5, h=6.0}; `
 
 /* `
 ~1~2;
@@ -26,15 +30,18 @@ val rect = {x= ~1.0, y=0.0, w=3.5, h=6.0}; `
 4x;
 ` */
 
-// `fun append_marks str = let
-//     val cs = explode str;
-//     val cs' = cs @ "...?!";
-// in implode cs;`
+`fun append_marks str = let
+    val cs = explode str;
+    val cs' = cs @ "...?!";
+    in implode cs
+end`
 
     tokens := lexer.tokenize(&script)
     defer delete_tokens(tokens)
 
     display_tokens(tokens[:])
+
+    tree_builder.build_tree(tokens[:])
 }
 main2 :: proc() {
     script := `(*"*) (* "abc" "123 *) " lmnop )* "`
@@ -82,6 +89,8 @@ display_tokens :: proc(tokens: []lexer.Token) {
             fmt.println("REAL LIT", token.text, "-->", token.literal_value)
         case .STRING_LIT: 
             fmt.printfln("STRING   %s --> `%s`", token.text, token.literal_value)
+        case .EOF: 
+            fmt.println("EOF     ")
         }
     }
 }
