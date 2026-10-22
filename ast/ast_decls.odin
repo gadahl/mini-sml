@@ -13,6 +13,7 @@ Any_Decl :: union {
     ^Local_Decl,
     ^Infix_Decl,
     ^Empty_Decl,
+    ^Seq_Decl,
 }
 
 
@@ -41,8 +42,8 @@ Fun_Arm :: struct{
 
 Local_Decl :: struct {
     using base_decl: Decl,
-    locals: []Decl,
-    globals: []Decl,
+    locals: ^Decl,
+    globals: ^Decl,
 }
 
 Infix_Decl :: struct {
@@ -53,4 +54,9 @@ Infix_Decl :: struct {
 
 Empty_Decl :: struct {
     using base_decl: Decl,
+}
+
+Seq_Decl :: struct {
+    using base_decl: Decl,
+    decls: []Decl,
 }

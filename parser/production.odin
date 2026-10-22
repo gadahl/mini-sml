@@ -1,4 +1,4 @@
-package tree_builder
+package parser
 import "core:fmt"
 
 // Represents grammar terms that can be further decomposed

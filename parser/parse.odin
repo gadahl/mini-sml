@@ -1,7 +1,8 @@
-package tree_builder
+package parser
 
 import "core:fmt"
 import "../lexer"
+import "../ast"
 import str "core:strings"
 
 
@@ -17,19 +18,26 @@ Parser :: struct {
     curr_token: ^lexer.Token,
     i: int,
     stack: [dynamic]StackItem,
+    root: ^ast.Seq_Decl,
+    frontier: [dynamic]ast.Node,
 }
 
 parser_make :: proc(tokens: []lexer.Token) -> Parser {
     stack := make([dynamic]StackItem)
+    root := new(ast.Seq_Decl);
+    frontier := make([dynamic]ast.Node)
     return Parser{
         tokens = tokens,
         curr_token = nil,
         i = -1,
         stack = stack,
+        root = root, 
+        frontier = frontier,
     }
 }
 parser_delete :: proc(parser: ^Parser) { 
-    delete(parser.stack) 
+    delete(parser.stack)
+    delete(parser.frontier) 
 }
 parser_advance :: proc(parser: ^Parser) {
     parser.i += 1
@@ -49,6 +57,7 @@ build_tree :: proc(ts: []lexer.Token) {
     defer parser_delete(&parser)
 
     append(&parser.stack, StackItem{.DECLS, 0, 0, 0})
+    append(&parser.frontier, parser.root.base_node)
 
     do_advance := true
     for {
@@ -73,7 +82,7 @@ build_tree :: proc(ts: []lexer.Token) {
     end_terminal := terminal_from_token(parser.curr_token)
 
     // if there are more terminals remaining, panic
-    // ("unbalanced closed paren" type of error)
+    // ("unbalanced close paren" type of error)
     if end_terminal != .EOF {
             panic(fmt.tprintf("nonterminal stack is empty so program should end, but got terminal %v", 
                 end_terminal))
@@ -104,6 +113,7 @@ parse_step :: proc(parser: ^Parser, parsed_terminal: Terminal) -> bool {
     curr_prod := rule_table[curr_item.nt][curr_item.opt]
 
     if curr_item.progress >= len(curr_prod.seq) {
+        // *** EXIT STEP ***
         exit_production(parser)
         return false
     }
@@ -113,12 +123,14 @@ parse_step :: proc(parser: ^Parser, parsed_terminal: Terminal) -> bool {
         switch sym in curr_symbol {
 
         case Nonterminal:
+            // *** ENTER STEP***
             enter_production(parser, sym, parsed_terminal)
             return false
 
         case Terminal: 
             // make sure that the terminal we find in the production is the same as the one we were given
             if sym == parsed_terminal {
+                // *** CONSUME STEP ***
                 curr_item.progress += 1
             }
             else {
@@ -127,12 +139,9 @@ parse_step :: proc(parser: ^Parser, parsed_terminal: Terminal) -> bool {
             }
             return true
 
+        case: return false // should never be reached
         }
     }
-
-    // debug
-    //print_stack(parser.stack[:])
-    return false
 }
 
 

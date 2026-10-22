@@ -2,13 +2,13 @@ package compiler
 
 import "core:fmt"
 import "../lexer"
-import "../tree_builder"
+import "../parser"
 
 
 
 main :: proc() {
-    tree_builder.init()
-    defer tree_builder.uninit()
+    parser.init()
+    defer parser.uninit()
 
     script := 
 // `val (m, n): int * int = (123, ~25);
@@ -41,7 +41,7 @@ end`
 
     display_tokens(tokens[:])
 
-    tree_builder.build_tree(tokens[:])
+    parser.build_tree(tokens[:])
 }
 main2 :: proc() {
     script := `(*"*) (* "abc" "123 *) " lmnop )* "`
