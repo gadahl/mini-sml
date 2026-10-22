@@ -11,8 +11,8 @@ main :: proc() {
     defer parser.uninit()
 
     script := 
+`val x: real = 0.05;`
 // `val (m, n): int * int = (123, ~25);
-// val x: real = 0.05;
 // val y: real = 1E~9;
 // val z: real = ~540.01E6;
 // val rect = {x= ~1.0, y=0.0, w=3.5, h=6.0}; `
@@ -30,11 +30,11 @@ main :: proc() {
 4x;
 ` */
 
-`fun append_marks str = let
-    val cs = explode str;
-    val cs' = cs @ "...?!";
-    in implode cs
-end`
+// `fun append_marks str = let
+//     val cs = explode str;
+//     val cs' = cs @ "...?!";
+//     in implode cs
+// end`
 
     tokens := lexer.tokenize(&script)
     defer delete_tokens(tokens)

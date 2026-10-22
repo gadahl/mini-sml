@@ -510,7 +510,7 @@ populate_table :: proc() {
     })
     insert_rule(&rule_table, Nonterminal.PATTERN_1, {
         {.ATOMIC_PATTERN, .INFIX_PATTERN_1, .TYPE_SPECS},
-        {.TYPE_SPECS, ._as, .PATTERN},
+        {.TYPE_SPECS, .OPT_AS_PATTERN},
         {.INFIX_PATTERN_1, .TYPE_SPECS},
     })
 

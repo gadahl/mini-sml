@@ -6,7 +6,6 @@ Expr :: struct {
 	expr_variant: Any_Expr,
 }
 
-
 Any_Expr :: union {
     ^Bad_Expr,
     ^Literal_Expr,

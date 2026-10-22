@@ -132,6 +132,7 @@ parse_step :: proc(parser: ^Parser, parsed_terminal: Terminal) -> bool {
             if sym == parsed_terminal {
                 // *** CONSUME STEP ***
                 curr_item.progress += 1
+                print_stack(parser.stack[:])
             }
             else {
                 panic(fmt.tprintf("in derivation of `%v`, predicted `%s`, found `%s`", 
@@ -224,7 +225,7 @@ print_stack :: proc(stack: []StackItem) {
 }
 
 print_popped :: proc(parser: ^Parser, popped: StackItem) {
-    fmt.printf("%24s", fmt.tprintf("%v[%d/%d] ", popped.nt, popped.progress, len(rule_table[popped.nt][popped.opt].seq)))
+    fmt.printf("%28s", fmt.tprintf("%v[%d/%d] ", popped.nt, popped.progress, len(rule_table[popped.nt][popped.opt].seq)))
 
     for i in popped.token_start..<parser.i {
         fmt.printf("%s ", terminal_strings[terminal_from_token(&parser.tokens[i])])
