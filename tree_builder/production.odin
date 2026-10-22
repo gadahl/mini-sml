@@ -18,8 +18,8 @@ Nonterminal :: enum {
     RECORD_FIELDS, RECORD_FIELDS_1, RECORD_FIELD, LIST_CONTENTS, LIST_CONTENTS_1, 
     PAREN_CONTENTS, PAREN_CONTENTS_1, EXPR_SEQ_1, MATCH, MATCH_1, MATCH_RULE,
 
-    TYPE, TYPE_1, TUPLE_TYPE, TUPLE_TYPE_1, CONSTRUCTED_TYPE, CONSTRUCTED_TYPE_1, 
-    ATOMIC_TYPE, NON_ALPHA_ATOMIC_TYPE, NON_ALPHA_ATOMIC_TYPES,
+    TYPE, TYPE_1, TUPLE_TYPE, TUPLE_TYPE_1, 
+    CONSTRUCTED_TYPE, CONSTRUCTED_TYPE_1, NON_ALPHA_ATOMIC_TYPE, NON_ALPHA_ATOMIC_TYPES,
     TYPE_FIELDS, TYPE_FIELDS_1, TYPE_FIELD,
 }
 
@@ -698,10 +698,6 @@ populate_table :: proc() {
         // "the syntax of types binds more tightly than the syntax of expressions"
         {.NON_ALPHA_ATOMIC_TYPES, .alpha_ident_, .CONSTRUCTED_TYPE_1},
         {},
-    })
-    insert_rule(&rule_table, Nonterminal.ATOMIC_TYPE, {
-        {.alpha_ident_},
-        {.NON_ALPHA_ATOMIC_TYPE},
     })
     insert_rule(&rule_table, Nonterminal.NON_ALPHA_ATOMIC_TYPES, {
         {.NON_ALPHA_ATOMIC_TYPE, .NON_ALPHA_ATOMIC_TYPES},
