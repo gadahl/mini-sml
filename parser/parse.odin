@@ -1,6 +1,7 @@
 package parser
 
 import "core:fmt"
+import "base:runtime"
 import "../lexer"
 import "../ast"
 import str "core:strings"
@@ -18,13 +19,13 @@ Parser :: struct {
     curr_token: ^lexer.Token,
     i: int,
     stack: [dynamic]StackItem,
-    root: ^ast.Seq_Decl,
+    root: ^ast.Type,
     frontier: [dynamic]ast.Node,
 }
 
 parser_make :: proc(tokens: []lexer.Token) -> Parser {
     stack := make([dynamic]StackItem)
-    root := new(ast.Seq_Decl);
+    root := new(ast.Type);
     frontier := make([dynamic]ast.Node)
     return Parser{
         tokens = tokens,
@@ -56,8 +57,9 @@ build_tree :: proc(ts: []lexer.Token) {
     parser := parser_make(ts)
     defer parser_delete(&parser)
 
-    append(&parser.stack, StackItem{.DECLS, 0, 0, 0})
-    append(&parser.frontier, parser.root.base_node)
+    //append(&parser.stack, StackItem{.DECLS, 0, 0, 0})
+    //append(&parser.frontier, parser.root.base_node)
+    append(&parser.stack, StackItem{.TYPE, 0, 0, 0})
 
     do_advance := true
     for {
@@ -129,23 +131,38 @@ parse_step :: proc(parser: ^Parser, parsed_terminal: Terminal) -> bool {
 
         case Terminal: 
             // make sure that the terminal we find in the production is the same as the one we were given
-            if sym == parsed_terminal {
-                // *** CONSUME STEP ***
-                curr_item.progress += 1
-                print_stack(parser.stack[:])
-            }
-            else {
+            if sym != parsed_terminal {
                 panic(fmt.tprintf("in derivation of `%v`, predicted `%s`, found `%s`", 
                         curr_item.nt, terminal_strings[sym], terminal_strings[parsed_terminal]))
             }
+
+            // *** CONSUME STEP ***
+
+            // put this onto the node stack if it has important information
+            if sym == .alpha_ident_ || sym == .sym_ident_ {
+                name_node := new(ast.Name)
+                name_node^ = ast.Name {
+                    //offset=parser.curr_token.,
+                    line=parser.curr_token.line,
+                    name=parser.curr_token.text,
+                    is_symbolic=(sym==.sym_ident_),
+                }
+                ast.connect(&name_node.base_node, name_node)
+                append(&parser.frontier, name_node)
+            }
+
+            curr_item.progress += 1
+            print_stack(parser.stack[:])
+                
             return true
 
-        case: return false // should never be reached
+        case: panic("bad symbol value, neither a terminal nor a nonterminal")
         }
     }
 }
 
 
+// gets a pointer to the last element of the slice
 get_last_ptr :: proc(arr: []$T) -> ^T {
     return &arr[len(arr) - 1]
 }
@@ -166,9 +183,6 @@ enter_production :: proc(parser: ^Parser, nt_to_enter: Nonterminal, curr_termina
 
     if chosen_prod, ok := chosen_prod.?; ok {
         append(&parser.stack, StackItem{nt_to_enter, parser.i, chosen_i, 0})
-        
-        // TODO: set up new node...
-
     }
     else {
         panic(fmt.tprintf("can't start `%s` with `%s`", 
@@ -183,12 +197,15 @@ exit_production :: proc(parser: ^Parser) {
 
     if (len(parser.stack) == 0) {
         // the popped node is the full tree
+        fmt.println("FRONTIER:")
+        ast.print_tree(parser.frontier[0])
     }
     else {
         parent_item := get_last_ptr(parser.stack[:])
-        parent_item.progress += 1
 
-        // combine popped node with parent
+        handle_pop(parser, popped, parent_item^)
+
+        parent_item.progress += 1
     }
 
 }
@@ -232,4 +249,290 @@ print_popped :: proc(parser: ^Parser, popped: StackItem) {
     }
 
     fmt.println()
+}
+
+append_empty_list :: proc(parser: ^Parser) {
+    empty_list := new(ast.Node_List)
+    empty_list.elements = make([dynamic]ast.Node)
+    empty_list.node_variant = empty_list
+    append(&parser.frontier, empty_list)
+}
+
+
+get_frontier_subtype :: proc(parser: ^Parser, $T: typeid, loc: runtime.Source_Code_Location = #caller_location) -> ^T {
+    node := pop(&parser.frontier)
+    node_list, ok1 := node.node_variant.(^T) 
+    if !ok1 do panic(fmt.tprintf("expected %v, but found %#v", typeid_of(T), node), loc=loc)
+    return node_list
+}
+
+
+handle_pop :: proc(parser: ^Parser, popped: StackItem, parent: StackItem) {
+    popped_seq := rule_table[popped.nt][popped.opt].seq
+    parent_seq := rule_table[parent.nt][parent.opt].seq
+    
+    if len(popped_seq) == 0 {
+        append_empty_list(parser)
+        return
+    }
+
+    popped_0 := popped_seq[0]
+
+    switch popped.nt {
+        case .DECLS:
+        case .DECLS_1:
+        case .DECL:
+        case .VAL_BINDS:
+        case .VAL_BINDS_1:
+        case .VAL_BIND:
+        case .FUN_BINDS:
+        case .FUN_BINDS_1:
+        case .FUN_BIND:
+        case .FUN_BIND_1:
+        case .FUN_ARM:
+        case .FUN_ARM_1:
+        case .FUN_ARGS:
+        case .OPT_TYPING:
+        case .INFIX_DETAILS:
+        case .INFIX_IDENTS:
+        case .PATTERN:
+        case .PATTERN_1:
+        case .TYPE_SPECS:
+        case .INFIX_PATTERN:
+        case .INFIX_PATTERN_1:
+        case .CONSTRUCTED_PATTERN:
+        case .CONSTRUCTED_PATTERN_1:
+        case .ATOMIC_PATTERN:
+        case .NON_ALPHA_ATOMIC_PATTERN:
+        case .OPT_ELLIPSIS:
+        case .PATTERN_FIELDS:
+        case .PATTERN_FIELDS_1:
+        case .PATTERN_FIELD:
+        case .PATTERN_FIELD_1:
+        case .OPT_AS_PATTERN:
+        case .LIST_CONTENTS_PATTERN:
+        case .LIST_CONTENTS_PATTERN_1:
+        case .EXPR:
+        case .HANDLED_EXPR:
+        case .HANDLED_EXPR_1:
+        case .ORELSE_EXPR:
+        case .ORELSE_EXPR_1:
+        case .ANDALSO_EXPR:
+        case .ANDALSO_EXPR_1:
+        case .TYPED_EXPR:
+        case .INFIX_EXPR:
+        case .INFIX_EXPR_1:
+        case .APPL_EXPR:
+        case .ATOMIC_EXPRS:
+
+        case .ATOMIC_EXPR:
+            if popped_0 == .literal_ {
+                // literal
+                literal := new(ast.Literal_Expr)
+                literal^ = ast.Literal_Expr{
+                    offset = 0,
+                    line = parser.curr_token.line,
+                }
+                literal.base_expr.expr_variant = literal
+                literal.base_node.node_variant = &literal.base_expr
+
+                switch val in parser.curr_token.literal_value {
+                    case i32: literal.value = val
+                    case f32: literal.value = val
+                    case string: literal.value = str.clone(val)
+                    case lexer.Undefined: panic("expected value from literal, but got Undefined!") 
+                    case lexer.No_Value: panic("expected value from literal, but got No_Value!")
+                }
+                append(&parser.frontier, literal.base_node)
+            }
+            else if popped_0 == .alpha_ident_ {
+                // alpha ident expr
+            }
+            else if popped_0 == .hash {
+                // label
+            }
+        case .RECORD_FIELDS:
+
+        case .RECORD_FIELDS_1:
+        case .RECORD_FIELD:
+        case .LIST_CONTENTS:
+        case .LIST_CONTENTS_1:
+        case .PAREN_CONTENTS:
+        case .PAREN_CONTENTS_1:
+        case .EXPR_SEQ_1:
+        case .MATCH:
+        case .MATCH_1:
+        case .MATCH_RULE:
+
+        case .TYPE: 
+            // get the top 2 stack items, and join them if the 2nd isn't empty
+            codomain_node := pop(&parser.frontier)
+            codomain, codomain_exists := codomain_node.node_variant.(^ast.Type); 
+            // if !codomain_exists, it means that codomain_node was an empty node_list
+
+            tuple_elements := get_frontier_subtype(parser, ast.Node_List)
+            domain: ^ast.Type
+
+            if (len(tuple_elements.elements) == 1) {
+                // unpack the singleton tuple
+                node := tuple_elements.elements[0]
+                ty, ok := node.node_variant.(^ast.Type)
+                //if !ok do panic(fmt.tprintf("expected Type, but found %#v", node.node_variant))
+                domain^ = ty^
+            }
+            else {   
+                tuple_node := new(ast.Tuple_Type)
+                types := make([dynamic]ast.Type)
+                tuple_node^ = ast.Tuple_Type {
+                    base_node=tuple_elements.base_node,
+                    components=types,
+                }
+                ast.connect(&tuple_node.base_type, tuple_node)
+                for node in tuple_elements.elements {
+                    ty, ok := node.node_variant.(^ast.Type)
+                    if !ok do panic(fmt.tprintf("expected Type, but found %#v", node.node_variant))
+                    append(&tuple_node.components, ty^)
+                }
+                delete(tuple_elements.elements)
+                //free(tuple_elements)
+                domain = tuple_node
+            }
+            
+            if (codomain_exists) {
+                // join the top two stack items into a func type
+                func_type := new(ast.Func_Type)
+                func_type^ = {domain=domain, codomain=codomain}
+                ast.connect(&func_type.base_type, func_type)
+    
+                append(&parser.frontier, func_type.base_node)
+            }
+            else {
+                append(&parser.frontier, domain.base_node)
+            }
+
+        case .TYPE_1: // let codomain type pass up to parent TYPE
+
+        case .TUPLE_TYPE:
+                // TUPLE_TYPE
+                tuple_elements := get_frontier_subtype(parser, ast.Node_List)
+                
+                cted_elements := get_frontier_subtype(parser, ast.Node_List)
+                cted_node := new(ast.Constructed_Type)
+                types := make([dynamic]ast.Type)
+                cted_node^ = ast.Constructed_Type {
+                    base_node=cted_elements.base_node,
+                    args=types,
+                }
+                ast.connect(&cted_node.base_type, cted_node)
+                for node in cted_elements.elements {
+                    ty, ok := node.node_variant.(^ast.Type)
+                    if !ok do panic(fmt.tprintf("expected Type, but found %#v", node.node_variant))
+                    append(&cted_node.args, ty^)
+                    //free(ty)
+                }
+                delete(cted_elements.elements)
+                //free(cted_elements)
+                
+                inject_at(&tuple_elements.elements, 0, cted_node)
+                append(&parser.frontier, tuple_elements.base_node)
+
+        case .TUPLE_TYPE_1: // let subtuple pass up to parent TUPLE_TYPE
+                tuple_elements := get_frontier_subtype(parser, ast.Node_List)
+                star := get_frontier_subtype(parser, ast.Name) // get the star out of here
+                append(&parser.frontier, tuple_elements.base_node)
+
+        case .CONSTRUCTED_TYPE, .CONSTRUCTED_TYPE_1:
+            // CONSTRUCTED_TYPE_1
+            old_nodes := get_frontier_subtype(parser, ast.Node_List)
+
+            // alpha_ident_
+            // prepend this alpha ident to the old list
+            name_node := get_frontier_subtype(parser, ast.Name)
+            if name_node.is_symbolic do panic(fmt.tprintf("expected alpha-id, but found `%s`", name_node.name))
+            
+            ident := new(ast.Ident_Type)
+            ident^ = ast.Ident_Type {
+                base_node=name_node.base_node,
+                name=name_node.name,
+            }
+            ast.connect(&ident.base_type, ident)
+            inject_at(&old_nodes.elements, 0, ident)
+
+            // NON_ALPHA_ATOMIC_TYPES
+            // prepend this list to the old list
+            new_nodes := get_frontier_subtype(parser, ast.Node_List)
+            #reverse for n in new_nodes.elements {
+                inject_at(&old_nodes.elements, 0, n)
+            }
+
+            // append old node list to the frontier again
+            append(&parser.frontier, old_nodes.base_node)
+
+        case .NON_ALPHA_ATOMIC_TYPE:
+            if popped_0 == .lcur {
+                //.lcur, .TYPE_FIELDS, .rcur
+                // turn the node_list into a record_type
+                node_list := get_frontier_subtype(parser, ast.Node_List)
+
+                record := new(ast.Record_Type)
+                field_list := make([dynamic]ast.Type_Field)
+                record^ = ast.Record_Type {
+                    base_node=node_list.base_node,
+                    fields=field_list,
+                }
+                ast.connect(&record.base_type, record)
+                for node in node_list.elements {
+                    field, ok := node.node_variant.(^ast.Type_Field)
+                    if !ok do panic(fmt.tprintf("expected Type_Field, but found %#v", node.node_variant))
+                    append(&record.fields, field^)
+                    free(field)
+                }
+            }
+            else {
+                //.lpar, .TYPE, .rpar
+                // the type just bubbles up
+            }
+        case .NON_ALPHA_ATOMIC_TYPES:
+            // NON_ALPHA_ATOMIC_TYPES
+            node_list := get_frontier_subtype(parser, ast.Node_List)
+
+            // NON_ALPHA_ATOMIC_TYPE
+            // prepend this to the existing list
+            ty := get_frontier_subtype(parser, ast.Type)
+            inject_at(&node_list.elements, 0, ty)
+            
+            // append old node list to the frontier again
+            append(&parser.frontier, node_list.base_node)
+
+        case .TYPE_FIELDS: 
+            // TYPE_FIELDS_1
+            node_list := get_frontier_subtype(parser, ast.Node_List)
+
+            // TYPE_FIELD
+            // prepend this to the existing list
+            field := get_frontier_subtype(parser, ast.Type_Field)
+            inject_at(&node_list.elements, 0, field)
+            
+            // append old node list to the frontier again
+            append(&parser.frontier, node_list.base_node)
+
+        case .TYPE_FIELDS_1: // bubble up
+
+        case .TYPE_FIELD:
+            // .TYPE
+            type_node := get_frontier_subtype(parser, ast.Type)
+
+            // .NAME
+            name_node := get_frontier_subtype(parser, ast.Name)
+            if name_node.is_symbolic do panic(fmt.tprintf("expected alpha-id, but found `%s`", name_node.name))
+
+            field := new(ast.Type_Field)
+            field^ = ast.Type_Field {
+                base_node=name_node.base_node,
+                label    =name_node.name,
+                type     =type_node,
+            }
+            ast.connect(&field.base_node, field)
+            append(&parser.frontier, field.base_node)
+    }
 }

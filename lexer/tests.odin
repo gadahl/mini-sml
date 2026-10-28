@@ -197,7 +197,7 @@ test_tokenize_wildcard :: proc(t: ^testing.T) {
 
 
 
-test_token_output :: proc(t: ^testing.T, loc: runtime.Source_Code_Location, input: ^string, expected: []Token) {
+test_token_output :: proc(t: ^testing.T, loc: runtime.Source_Code_Location = #caller_location, input: ^string, expected: []Token) {
     testing.set_fail_timeout(t, 1 * time.Second)
 
     tokens := tokenize(input)

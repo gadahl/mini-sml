@@ -16,6 +16,11 @@ Any_Decl :: union {
     ^Seq_Decl,
 }
 
+connect_decl :: proc(base: ^Decl, variant: Any_Decl) {
+    base.decl_variant = variant
+    connect_node(&base.base_node, base)
+}
+
 
 // Declessions
 

@@ -690,7 +690,8 @@ populate_table :: proc() {
         {.sym_ident_, .TUPLE_TYPE},
         {},
     })
-    insert_rule(&rule_table, Nonterminal.CONSTRUCTED_TYPE, {
+    insert_rule(&rule_table, Nonterminal.CONSTRUCTED_TYPE, { 
+        // TODO: needs to allow a NON_ALPHA_ATOMIC_TYPE by itself
         {.NON_ALPHA_ATOMIC_TYPES, .alpha_ident_, .CONSTRUCTED_TYPE_1},
     })
     insert_rule(&rule_table, Nonterminal.CONSTRUCTED_TYPE_1, {
@@ -708,7 +709,7 @@ populate_table :: proc() {
         {.lpar, .TYPE, .rpar},
     })
     insert_rule(&rule_table, Nonterminal.TYPE_FIELDS, {
-        {Nonterminal.TYPE_FIELD, .TYPE_FIELDS_1},
+        {.TYPE_FIELD, .TYPE_FIELDS_1},
         {},
     })
     insert_rule(&rule_table, Nonterminal.TYPE_FIELDS_1, {

@@ -14,9 +14,21 @@ Any_Type :: union {
     ^Func_Type,
 }
 
+connect_type :: proc(base: ^Type, variant: Any_Type) {
+    base.type_variant = variant
+    connect_node(&base.base_node, base)
+}
+
+
+// Typeessions
 
 Bad_Type :: struct {
 	using base_type: Type,
+}
+make_bad_type :: proc() -> ^Bad_Type {
+    bad := new(Bad_Type)
+    bad^ = {type_variant = bad, node_variant = &bad.base_type}
+    return bad
 }
 
 Ident_Type :: struct {
@@ -27,21 +39,22 @@ Ident_Type :: struct {
 Constructed_Type :: struct {
     using base_type: Type,
     constructor: ^Type,
-    args: []Type,
+    args: [dynamic]Type,
 }
 
 Record_Type :: struct {
     using base_type: Type,
-    fields: []Type_Field,
+    fields: [dynamic]Type_Field,
 }
 Type_Field :: struct {
+    using base_node: Node,
     label: string,
-    type: Type,
+    type: ^Type,
 }
 
 Tuple_Type :: struct {
     using base_type: Type,
-    components: []Type,
+    components: [dynamic]Type,
 }
 
 Func_Type :: struct {

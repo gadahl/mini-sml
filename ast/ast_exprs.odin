@@ -29,6 +29,11 @@ Any_Expr :: union {
     ^Seq_Expr,
 }
 
+connect_expr :: proc(base: ^Expr, variant: Any_Expr) {
+    base.expr_variant = variant
+    connect_node(&base.base_node, base)
+}
+
 
 // Expressions
 
@@ -66,8 +71,9 @@ Record_Expr :: struct {
     fields: []Expr_Field,
 }
 Expr_Field :: struct {
+    using base_node: Node,
     label: string,
-    expr: Expr,
+    expr: ^Expr,
 }
 
 Let_Expr :: struct {

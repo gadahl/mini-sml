@@ -10,9 +10,9 @@ main :: proc() {
     parser.init()
     defer parser.uninit()
 
-    script := 
-`val x: real = 0.05;`
-// `val (m, n): int * int = (123, ~25);
+    script := "x * y list -> (a * b) list"
+// `val x: real = 0.05;
+// val (m, n): int * int = (123, ~25);
 // val y: real = 1E~9;
 // val z: real = ~540.01E6;
 // val rect = {x= ~1.0, y=0.0, w=3.5, h=6.0}; `

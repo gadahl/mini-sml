@@ -21,6 +21,11 @@ Any_Pattern :: union {
     ^Layered_Pattern,
 }
 
+connect_pattern :: proc(base: ^Pattern, variant: Any_Pattern) {
+    base.pattern_variant = variant
+    connect_node(&base.base_node, base)
+}
+
 
 // Patternessions
 
@@ -58,8 +63,9 @@ Record_Pattern :: struct {
     has_ellipsis: bool,
 }
 Pattern_Field :: struct {
+    using base_node: Node,
     label: string,
-    pattern: Pattern,
+    pattern: ^Pattern,
 }
 
 Constructed_Pattern :: struct {
