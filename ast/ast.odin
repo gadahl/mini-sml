@@ -64,21 +64,21 @@ print_tree :: proc(n: Node, indent: int = 0) {
         case ^Bad_Type:
             fmt.printfln("%sBad_Type", spaces)
         case ^Ident_Type:
-            fmt.printfln("%sIdent_Type: name=%s", spaces, t.name)
+            fmt.printfln("%sIdent_Type: `%s`", spaces, t.name)
         case ^Constructed_Type:
-            fmt.printfln("%sConstructed_Type (size %d) %s", spaces, len(t.args), "{")
+            fmt.printfln("%sConstructed_Type[%d] %s", spaces, len(t.args), "{")
             for e in t.args {
                 print_tree(e, indent+1)
             }
         fmt.printfln("%s%s", spaces, "}")
         case ^Record_Type:
-            fmt.printfln("%sRecord_Type (size %d) %s", spaces, len(t.fields), "{")
+            fmt.printfln("%sRecord_Type[%d] %s", spaces, len(t.fields), "{")
             for e in t.fields {
                 print_tree(e, indent+1)
             }
         fmt.printfln("%s%s", spaces, "}")
         case ^Tuple_Type:
-            fmt.printfln("%sTuple_Type (size %d) %s", spaces, len(t.components), "{")
+            fmt.printfln("%sTuple_Type[%d] %s", spaces, len(t.components), "{")
             for e in t.components {
                 print_tree(e, indent+1)
             }
@@ -91,7 +91,7 @@ print_tree :: proc(n: Node, indent: int = 0) {
         }
     
     case ^Node_List:
-        fmt.printfln("%sNode_List (size %d) %s", spaces, len(v.elements), "{")
+        fmt.printfln("%sNode_List[%d] %s", spaces, len(v.elements), "{")
         for e in v.elements {
             print_tree(e, indent+1)
         }

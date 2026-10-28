@@ -262,7 +262,7 @@ append_empty_list :: proc(parser: ^Parser) {
 get_frontier_subtype :: proc(parser: ^Parser, $T: typeid, loc: runtime.Source_Code_Location = #caller_location) -> ^T {
     node := pop(&parser.frontier)
     node_list, ok1 := node.node_variant.(^T) 
-    if !ok1 do panic(fmt.tprintf("expected %v, but found %#v", typeid_of(T), node), loc=loc)
+    if !ok1 do panic(fmt.tprintf("expected %v, but found:\n%#v", typeid_of(T), node.node_variant), loc=loc)
     return node_list
 }
 
@@ -340,8 +340,8 @@ handle_pop :: proc(parser: ^Parser, popped: StackItem, parent: StackItem) {
                     case i32: literal.value = val
                     case f32: literal.value = val
                     case string: literal.value = str.clone(val)
-                    case lexer.Undefined: panic("expected value from literal, but got Undefined!") 
-                    case lexer.No_Value: panic("expected value from literal, but got No_Value!")
+                    case lexer.Undefined, lexer.No_Value: 
+                        panic(fmt.tprintf("expected value from literal, but got %v!", val))
                 }
                 append(&parser.frontier, literal.base_node)
             }
@@ -364,7 +364,9 @@ handle_pop :: proc(parser: ^Parser, popped: StackItem, parent: StackItem) {
         case .MATCH_1:
         case .MATCH_RULE:
 
-        case .TYPE: 
+        case .TYPE: // --.
+
+        case .FN_TYPE: // TupleList, TypeA/EmptyList -- FuncType/TupleType.
             // get the top 2 stack items, and join them if the 2nd isn't empty
             codomain_node := pop(&parser.frontier)
             codomain, codomain_exists := codomain_node.node_variant.(^ast.Type); 
@@ -378,14 +380,13 @@ handle_pop :: proc(parser: ^Parser, popped: StackItem, parent: StackItem) {
                 node := tuple_elements.elements[0]
                 ty, ok := node.node_variant.(^ast.Type)
                 //if !ok do panic(fmt.tprintf("expected Type, but found %#v", node.node_variant))
-                domain^ = ty^
+                domain = ty
             }
             else {   
                 tuple_node := new(ast.Tuple_Type)
-                types := make([dynamic]ast.Type)
                 tuple_node^ = ast.Tuple_Type {
                     base_node=tuple_elements.base_node,
-                    components=types,
+                    components=make([dynamic]ast.Type),
                 }
                 ast.connect(&tuple_node.base_type, tuple_node)
                 for node in tuple_elements.elements {
@@ -410,38 +411,63 @@ handle_pop :: proc(parser: ^Parser, popped: StackItem, parent: StackItem) {
                 append(&parser.frontier, domain.base_node)
             }
 
-        case .TYPE_1: // let codomain type pass up to parent TYPE
+        case .FN_TYPE_1: // --.
 
-        case .TUPLE_TYPE:
-                // TUPLE_TYPE
+        case .TUPLE_TYPE: // Type, TupleList -- TupleList.
                 tuple_elements := get_frontier_subtype(parser, ast.Node_List)
+                type := get_frontier_subtype(parser, ast.Type)
                 
-                cted_elements := get_frontier_subtype(parser, ast.Node_List)
-                cted_node := new(ast.Constructed_Type)
-                types := make([dynamic]ast.Type)
-                cted_node^ = ast.Constructed_Type {
-                    base_node=cted_elements.base_node,
-                    args=types,
-                }
-                ast.connect(&cted_node.base_type, cted_node)
-                for node in cted_elements.elements {
-                    ty, ok := node.node_variant.(^ast.Type)
-                    if !ok do panic(fmt.tprintf("expected Type, but found %#v", node.node_variant))
-                    append(&cted_node.args, ty^)
-                    //free(ty)
-                }
-                delete(cted_elements.elements)
-                //free(cted_elements)
-                
-                inject_at(&tuple_elements.elements, 0, cted_node)
-                append(&parser.frontier, tuple_elements.base_node)
+                inject_at(&tuple_elements.elements, 0, type)
+                append(&parser.frontier, tuple_elements)
 
-        case .TUPLE_TYPE_1: // let subtuple pass up to parent TUPLE_TYPE
+        case .TUPLE_TYPE_1: // `*`, TupleList -- TupleList.
                 tuple_elements := get_frontier_subtype(parser, ast.Node_List)
                 star := get_frontier_subtype(parser, ast.Name) // get the star out of here
                 append(&parser.frontier, tuple_elements.base_node)
 
-        case .CONSTRUCTED_TYPE, .CONSTRUCTED_TYPE_1:
+        case .CONSTRUCTED_TYPE: // Name/TypeA, CtedList/EmptyList -- CtedType/Ident/TypeA.
+            cted_list := get_frontier_subtype(parser, ast.Node_List)
+            type_node: ^ast.Type
+
+            if popped_0 == .alpha_ident_ {
+                name_node := get_frontier_subtype(parser, ast.Name)
+                ident_node := new(ast.Ident_Type)
+                ident_node^ = ast.Ident_Type {
+                    name=str.clone(name_node.name),
+                    base_node=name_node.base_node,
+                }
+                ast.connect(&ident_node.base_type, ident_node)
+                type_node = &ident_node.base_type
+            }
+            else {
+                type_node = get_frontier_subtype(parser, ast.Type)
+            }
+
+            if len(cted_list.elements) == 0 {
+                append(&parser.frontier, type_node)
+                break;
+            }
+
+            cted_node := new(ast.Constructed_Type)
+            cted_node^ = ast.Constructed_Type {
+                base_node=cted_list.base_node,
+                args=make([dynamic]ast.Type),
+            }
+            ast.connect(&cted_node.base_type, cted_node)
+            append(&cted_node.args, type_node^)
+            for node in cted_list.elements {
+                ty, ok := node.node_variant.(^ast.Type)
+                if !ok do panic(fmt.tprintf("expected Type, but found %#v", node.node_variant))
+                append(&cted_node.args, ty^)
+                //free(ty)
+            }
+            //delete(cted_list.elements)
+            //free(cted_elements)
+            append(&parser.frontier, cted_node)
+                
+        case .AFTER_ALPHA_ATOMIC_TYPE: // --.
+
+        case .CONSTRUCTED_TYPE_1: // NewList, Name, OldList -- OldList.
             // CONSTRUCTED_TYPE_1
             old_nodes := get_frontier_subtype(parser, ast.Node_List)
 
@@ -468,17 +494,16 @@ handle_pop :: proc(parser: ^Parser, popped: StackItem, parent: StackItem) {
             // append old node list to the frontier again
             append(&parser.frontier, old_nodes.base_node)
 
-        case .NON_ALPHA_ATOMIC_TYPE:
+        case .NON_ALPHA_ATOMIC_TYPE: // FieldList/ParenType -- Record/ParenType.
             if popped_0 == .lcur {
                 //.lcur, .TYPE_FIELDS, .rcur
                 // turn the node_list into a record_type
                 node_list := get_frontier_subtype(parser, ast.Node_List)
 
                 record := new(ast.Record_Type)
-                field_list := make([dynamic]ast.Type_Field)
                 record^ = ast.Record_Type {
                     base_node=node_list.base_node,
-                    fields=field_list,
+                    fields=make([dynamic]ast.Type_Field),
                 }
                 ast.connect(&record.base_type, record)
                 for node in node_list.elements {
@@ -492,7 +517,8 @@ handle_pop :: proc(parser: ^Parser, popped: StackItem, parent: StackItem) {
                 //.lpar, .TYPE, .rpar
                 // the type just bubbles up
             }
-        case .NON_ALPHA_ATOMIC_TYPES:
+
+        case .NON_ALPHA_ATOMIC_TYPES: // Type, TypeList -- TypeList.
             // NON_ALPHA_ATOMIC_TYPES
             node_list := get_frontier_subtype(parser, ast.Node_List)
 
@@ -504,7 +530,7 @@ handle_pop :: proc(parser: ^Parser, popped: StackItem, parent: StackItem) {
             // append old node list to the frontier again
             append(&parser.frontier, node_list.base_node)
 
-        case .TYPE_FIELDS: 
+        case .TYPE_FIELDS: // Field, FieldList -- FieldList.
             // TYPE_FIELDS_1
             node_list := get_frontier_subtype(parser, ast.Node_List)
 
@@ -514,11 +540,11 @@ handle_pop :: proc(parser: ^Parser, popped: StackItem, parent: StackItem) {
             inject_at(&node_list.elements, 0, field)
             
             // append old node list to the frontier again
-            append(&parser.frontier, node_list.base_node)
+            append(&parser.frontier, node_list)
 
-        case .TYPE_FIELDS_1: // bubble up
+        case .TYPE_FIELDS_1: // --.
 
-        case .TYPE_FIELD:
+        case .TYPE_FIELD: // Name, Type -- Field.
             // .TYPE
             type_node := get_frontier_subtype(parser, ast.Type)
 
@@ -533,6 +559,6 @@ handle_pop :: proc(parser: ^Parser, popped: StackItem, parent: StackItem) {
                 type     =type_node,
             }
             ast.connect(&field.base_node, field)
-            append(&parser.frontier, field.base_node)
+            append(&parser.frontier, field)
     }
 }

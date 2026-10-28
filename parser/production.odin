@@ -18,8 +18,9 @@ Nonterminal :: enum {
     RECORD_FIELDS, RECORD_FIELDS_1, RECORD_FIELD, LIST_CONTENTS, LIST_CONTENTS_1, 
     PAREN_CONTENTS, PAREN_CONTENTS_1, EXPR_SEQ_1, MATCH, MATCH_1, MATCH_RULE,
 
-    TYPE, TYPE_1, TUPLE_TYPE, TUPLE_TYPE_1, 
-    CONSTRUCTED_TYPE, CONSTRUCTED_TYPE_1, NON_ALPHA_ATOMIC_TYPE, NON_ALPHA_ATOMIC_TYPES,
+    TYPE, FN_TYPE, FN_TYPE_1, TUPLE_TYPE, TUPLE_TYPE_1, 
+    CONSTRUCTED_TYPE, AFTER_ALPHA_ATOMIC_TYPE, CONSTRUCTED_TYPE_1, 
+    NON_ALPHA_ATOMIC_TYPE, NON_ALPHA_ATOMIC_TYPES,
     TYPE_FIELDS, TYPE_FIELDS_1, TYPE_FIELD,
 }
 
@@ -677,10 +678,13 @@ populate_table :: proc() {
 
     // Types
     insert_rule(&rule_table, Nonterminal.TYPE, {
-        {.TUPLE_TYPE, .TYPE_1},
+        {.FN_TYPE},
     })
-    insert_rule(&rule_table, Nonterminal.TYPE_1, {
-        {.fn_type, .TYPE},
+    insert_rule(&rule_table, Nonterminal.FN_TYPE, {
+        {.TUPLE_TYPE, .FN_TYPE_1},
+    })
+    insert_rule(&rule_table, Nonterminal.FN_TYPE_1, {
+        {.fn_type, .FN_TYPE},
         {},
     })
     insert_rule(&rule_table, Nonterminal.TUPLE_TYPE, {
@@ -691,8 +695,12 @@ populate_table :: proc() {
         {},
     })
     insert_rule(&rule_table, Nonterminal.CONSTRUCTED_TYPE, { 
-        // TODO: needs to allow a NON_ALPHA_ATOMIC_TYPE by itself
-        {.NON_ALPHA_ATOMIC_TYPES, .alpha_ident_, .CONSTRUCTED_TYPE_1},
+        {.alpha_ident_, .AFTER_ALPHA_ATOMIC_TYPE},
+        {.NON_ALPHA_ATOMIC_TYPE, .CONSTRUCTED_TYPE_1},
+    })
+    insert_rule(&rule_table, Nonterminal.AFTER_ALPHA_ATOMIC_TYPE, { 
+        {.CONSTRUCTED_TYPE_1},
+        {},
     })
     insert_rule(&rule_table, Nonterminal.CONSTRUCTED_TYPE_1, {
         // always greedily try to read more types (i.e. order matters)

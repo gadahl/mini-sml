@@ -10,7 +10,9 @@ main :: proc() {
     parser.init()
     defer parser.uninit()
 
-    script := "x * y list -> (a * b) list"
+    script := "a b c (d * e) F * g * h i (j K) L -> m -> n -> (o -> p q r S) T"
+    //"(a -> b -> c) -> a * b -> c"  // uncurry function
+    //"x * y list -> (a * b) list"
 // `val x: real = 0.05;
 // val (m, n): int * int = (123, ~25);
 // val y: real = 1E~9;
