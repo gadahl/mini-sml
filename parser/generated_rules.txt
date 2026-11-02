@@ -1,0 +1,137 @@
+DECLS
+  DECL (`;` DECL)*
+
+DECL
+  `val` VAL_BINDS
+  `fun` FUN_BINDS
+  `local` DECLS `in` DECLS `end`
+  `infix` INFIX_DETAILS
+  `infixr` INFIX_DETAILS
+  ε
+
+VAL_BINDS
+  VAL_BIND (`and` VAL_BIND)*
+
+VAL_BIND
+  `rec`? PATTERN `=` EXPR
+
+FUN_BINDS
+  FUN_BIND (`and` FUN_BIND)*
+
+FUN_BIND
+  FUN_ARM (`|` FUN_ARM)*
+
+FUN_ARM
+  FUN_SIGNATURE (`:` TYPE)? `=` EXPR
+
+FUN_SIGNATURE
+  ATOMIC_PATTERN <sym_ident> ATOMIC_PATTERN
+  <alpha_ident> ATOMIC_PATTERN*
+
+INFIX_DETAILS
+  <literal>? <sym_ident>+
+
+PATTERN
+  <alpha_ident> (`:` TYPE)* (as PATTERN)?
+  INFIX_PATTERN (`:` TYPE)*
+
+INFIX_PATTERN
+  CONSTRUCTED_PATTERN (<sym_ident> CONSTRUCTED_PATTERN)*
+
+CONSTRUCTED_PATTERN
+  <alpha_ident> ATOMIC_PATTERN
+  ATOMIC_PATTERN
+
+ATOMIC_PATTERN
+  <alpha_ident>
+  <literal>
+  `(` LIST_CONTENTS_PATTERN? `)`
+  `[` LIST_CONTENTS_PATTERN? `]`
+  `{` PATTERN_FIELDS? `...`? `}`
+
+PATTERN_FIELDS
+  PATTERN_FIELD (`,` PATTERN_FIELD)*
+
+PATTERN_FIELD
+  <alpha_ident> `=` PATTERN                 // standard field matching 
+  <alpha_ident> (`:` TYPE)? (`as` PATTERN)  // layered
+  <alpha_ident> (`:` TYPE)?                 // `id` is transformed into `id = id`
+
+LIST_CONTENTS_PATTERN
+  PATTERN (`,` PATTERN)*
+
+EXPR
+  HANDLED_EXPR
+  `raise` EXPR
+  `if` EXPR `then` EXPR `else` EXPR
+  `while` EXPR `do` EXPR
+  `case` EXPR `of` MATCH
+  `fn` MATCH
+
+HANDLED_EXPR
+  ORELSE_EXPR (`handle` MATCH)?
+
+ORELSE_EXPR
+  ANDALSO_EXPR (`orelse` ORELSE_EXPR)?
+
+ANDALSO_EXPR
+  TYPED_EXPR (`andalso` ANDALSO_EXPR)?
+
+TYPED_EXPR
+  INFIX_EXPR (`:` TYPE)?
+
+INFIX_EXPR
+  APPL_EXPR (<sym_ident> APPL_EXPR)*
+
+APPL_EXPR
+  ATOMIC_EXPR+
+
+ATOMIC_EXPR
+  <literal> 
+  <alpha_ident>
+  `(` PAREN_CONTENTS? `)`
+  `[` LIST_CONTENTS? `]`
+  `{` RECORD_FIELDS? `}`
+  `#` <alpha_ident>
+  `let` DECLS `in` EXPR `end`
+
+RECORD_FIELDS
+  RECORD_FIELD (`,` RECORD_FIELD)*
+
+RECORD_FIELD
+  <alpha_ident> `=` EXPR
+
+LIST_CONTENTS
+  EXPR (`,` EXPR)*
+
+PAREN_CONTENTS
+  EXPR `;` EXPR (`;` EXPR)*
+  EXPR `,` EXPR (`,` EXPR)*
+  EXPR
+
+MATCH
+  MATCH_RULE (`|` MATCH_RULE)*
+
+MATCH_RULE
+  PATTERN `=>` EXPR
+
+TYPE
+  TUPLE_TYPE (`->` TYPE)*
+
+TUPLE_TYPE
+  CONSTRUCTED_TYPE (<sym_ident> CONSTRUCTED_TYPE)*
+
+CONSTRUCTED_TYPE
+  ATOMIC_TYPE+ <alpha_ident>
+  ATOMIC_TYPE
+
+ATOMIC_TYPE
+  <alpha_ident>
+  `{` TYPE_FIELDS? `}`
+  `(` TYPE `)`
+
+TYPE_FIELDS
+  TYPE_FIELD (`,` TYPE_FIELD)*
+
+TYPE_FIELD
+  <alpha_ident> `:` TYPE

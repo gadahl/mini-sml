@@ -115,7 +115,7 @@ main :: proc() {
     init()
     defer uninit()
 
-    //print_rules()
+    print_rules()
     //print_start_sets()
     print_start_set_conflicts()
 }
@@ -149,6 +149,7 @@ print_rules :: proc() {
     }
 }
 
+// use `chcp 65001` in windows cmd to display unicode
 print_start_sets :: proc() {
     for nt in Nonterminal {
         if nt in rule_table && len(rule_table[nt]) > 0 {
