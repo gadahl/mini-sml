@@ -1,5 +1,5 @@
 package parser
-
+/*
 import "core:fmt"
 import "base:runtime"
 import "../lexer"
@@ -561,4 +561,4 @@ handle_pop :: proc(parser: ^Parser, popped: StackItem, parent: StackItem) {
             ast.connect(&field.base_node, field)
             append(&parser.frontier, field)
     }
-}
+}*/

@@ -10,7 +10,7 @@ main :: proc() {
     parser.init()
     defer parser.uninit()
 
-    script := "a b c (d * e) F * g * h i (j K) L -> m -> n -> (o -> p q r S) T"
+    script := ";;a"//"a b c (d * e) F * g * h i (j K) L -> m -> n -> (o -> p q r S) T"
     //"(a -> b -> c) -> a * b -> c"  // uncurry function
     //"x * y list -> (a * b) list"
 // `val x: real = 0.05;
@@ -43,7 +43,13 @@ main :: proc() {
 
     display_tokens(tokens[:])
 
-    parser.build_tree(tokens[:])
+    tree, err := parser.parse_program(tokens[:])
+    if err != nil {
+        fmt.println("error:", err.message)
+    }
+    else {
+        fmt.printfln("tree: %#v", tree)
+    }
 }
 main2 :: proc() {
     script := `(*"*) (* "abc" "123 *) " lmnop )* "`
