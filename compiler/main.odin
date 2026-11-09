@@ -3,14 +3,12 @@ package compiler
 import "core:fmt"
 import "../lexer"
 import "../parser"
+import "../ast"
 
 
 
 main :: proc() {
-    parser.init()
-    defer parser.uninit()
-
-    script := ";;a"//"a b c (d * e) F * g * h i (j K) L -> m -> n -> (o -> p q r S) T"
+    script := "val a = b;;val rec c=d"//"a b c (d * e) F * g * h i (j K) L -> m -> n -> (o -> p q r S) T"
     //"(a -> b -> c) -> a * b -> c"  // uncurry function
     //"x * y list -> (a * b) list"
 // `val x: real = 0.05;
@@ -48,7 +46,7 @@ main :: proc() {
         fmt.println("error:", err.message)
     }
     else {
-        fmt.printfln("tree: %#v", tree)
+        ast.print_tree(tree.base_node)
     }
 }
 main2 :: proc() {
@@ -101,6 +99,7 @@ display_tokens :: proc(tokens: []lexer.Token) {
             fmt.println("EOF     ")
         }
     }
+    fmt.println()
 }
 
 delete_tokens :: proc(tokens: [dynamic]lexer.Token) {

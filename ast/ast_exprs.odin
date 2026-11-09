@@ -40,6 +40,12 @@ connect_expr :: proc(base: ^Expr, variant: Any_Expr) {
 Bad_Expr :: struct {
 	using base_expr: Expr,
 }
+new_bad_expr :: proc(base: Node) -> ^Bad_Expr {
+    bad := new(Bad_Expr)
+    bad ^= { base_node=base }
+    connect(&bad.base_expr, bad)
+    return bad
+}
 
 Literal_Expr :: struct {
 	using base_expr: Expr,
@@ -49,6 +55,12 @@ Literal_Expr :: struct {
 Ident_Expr :: struct {
 	using base_expr: Expr,
 	name: string,
+}
+new_ident_expr :: proc(name: string, base: Node) -> ^Ident_Expr {
+    ident := new(Ident_Expr)
+    ident ^= Ident_Expr { name=name, base_node=base }
+    connect(&ident.base_expr, ident)
+    return ident
 }
 
 Label_Expr :: struct {

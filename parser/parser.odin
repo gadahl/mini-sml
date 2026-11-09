@@ -105,67 +105,23 @@ parse_keyword :: proc(parser: ^Parser, keyword: string) -> (out_err: ^ParseErr) 
     return nil
 }
 
-
-parse_decls :: proc(parser: ^Parser) -> (out: ^ast.Seq_Decl, out_err: ^ParseErr) {
-    parser_mark(parser)
-    defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
-    
-    // DECL (`;` DECL)*
-
-    first, err := parse_decl(parser)
-    if err != nil do return nil, err
-
-    decl_list := make([dynamic]^ast.Decl)
-    append(&decl_list, first)
-    
-    err = nil
-    for {
-        done := parse_keyword(parser, ";")
-        if done != nil do break
-
-        decl : ^ast.Decl
-        decl, err = parse_decl(parser)
-        if err != nil do break
-        append(&decl_list, decl)
-    }
-    if err != nil {
-        // TODO: delete stuff inside the list
-        delete(decl_list)
-        return nil, err
-    }
-    
-    return ast.new_seq_decl(decl_list, first.base_node), nil
-}
-
-parse_decl :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) {
+parse_ident :: proc(parser: ^Parser, is_symbolic: bool) -> (out: ^ast.Name, out_err: ^ParseErr) {
     parser_mark(parser)
     defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
 
-    // `val` VAL_BINDS
-    // `fun` FUN_BINDS
-    // `local` DECLS `in` DECLS `end`
-    // `infix` INFIX_DETAILS
-    // `infixr` INFIX_DETAILS
-    // ε
+    if !parser_has_next(parser) {
+        return nil, new_temp_err(fmt.tprintf("Expected identifier, but reached end of file"))
+    }
 
-    if err := parse_keyword(parser, "val"); err == nil {
-        // must parse: VAL_BINDS
-    }
-    else if err = parse_keyword(parser, "fun"); err == nil {
-        // must parse: FUN_BINDS
-    }
-    else if err = parse_keyword(parser, "local"); err == nil {
-        // must parse: DECLS `in` DECLS `end`
-    }
-    else if err = parse_keyword(parser, "infix"); err == nil {
-        // must parse: INFIX_DETAILS
-    }
-    else if err = parse_keyword(parser, "infixr"); err == nil {
-        // must parse: INFIX_DETAILS
+    t := parser.curr_token
+    parser_advance(parser)
+
+    if (!is_symbolic && t.type == lexer.Token_Type.ALPHANUM_IDENT) || 
+        (is_symbolic && t.type == lexer.Token_Type.SYMBOLIC_IDENT) {
+        return ast.new_name(str.clone(t.text), ast.Node{ line=t.line, offset=0 }), nil
     }
     else {
-        return ast.new_empty_decl(ast.Node{ }), nil
+        expected := is_symbolic ? "infix identifier" : "identifier"
+        return nil, new_temp_err(fmt.tprintf("Expected %s, but got token of type %v", expected, t.type))
     }
-    return nil, nil
-
 }

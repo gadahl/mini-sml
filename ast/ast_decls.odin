@@ -36,12 +36,13 @@ new_bad_decl :: proc(base: Node) -> ^Bad_Decl {
 
 Val_Decl :: struct {
     using base_decl: Decl,
+    is_rec: bool,
     lhs: ^Pattern,
     rhs: ^Expr,
 }
-new_val_decl :: proc(lhs: ^Pattern, rhs: ^Expr, base: Node) -> ^Val_Decl {
+new_val_decl :: proc(is_rec: bool, lhs: ^Pattern, rhs: ^Expr, base: Node) -> ^Val_Decl {
     val_decl := new(Val_Decl)
-    val_decl ^= Val_Decl { lhs=lhs, rhs=rhs, base_node=base }
+    val_decl ^= Val_Decl { is_rec=is_rec, lhs=lhs, rhs=rhs, base_node=base }
     connect(&val_decl.base_decl, val_decl)
     return val_decl
 }

@@ -32,6 +32,12 @@ connect_pattern :: proc(base: ^Pattern, variant: Any_Pattern) {
 Bad_Pattern :: struct {
 	using base_pattern: Pattern,
 }
+new_bad_pattern :: proc(base: Node) -> ^Bad_Pattern {
+    bad := new(Bad_Pattern)
+    bad ^= { base_node=base }
+    connect(&bad.base_pattern, bad)
+    return bad
+}
 
 Wildcard_Pattern :: struct {
 	using base_pattern: Pattern,
@@ -45,6 +51,12 @@ Literal_Pattern :: struct {
 Ident_Pattern :: struct {
 	using base_pattern: Pattern,
 	name: string,
+}
+new_ident_pattern :: proc(name: string, base: Node) -> ^Ident_Pattern {
+    ident := new(Ident_Pattern)
+    ident ^= Ident_Pattern { name=name, base_node=base }
+    connect(&ident.base_pattern, ident)
+    return ident
 }
 
 List_Pattern :: struct {

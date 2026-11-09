@@ -25,15 +25,22 @@ connect_type :: proc(base: ^Type, variant: Any_Type) {
 Bad_Type :: struct {
 	using base_type: Type,
 }
-make_bad_type :: proc() -> ^Bad_Type {
+new_bad_type :: proc(base: Node) -> ^Bad_Type {
     bad := new(Bad_Type)
-    bad^ = {type_variant = bad, node_variant = &bad.base_type}
+    bad ^= { base_node=base }
+    connect(&bad.base_type, bad)
     return bad
 }
 
 Ident_Type :: struct {
     using base_type: Type,
     name: string,
+}
+new_ident_type :: proc(name: string, base: Node) -> ^Ident_Type {
+    ident := new(Ident_Type)
+    ident ^= Ident_Type { name=name, base_node=base }
+    connect(&ident.base_type, ident)
+    return ident
 }
 
 Constructed_Type :: struct {
