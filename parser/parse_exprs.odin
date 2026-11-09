@@ -46,13 +46,14 @@ parse_atomic_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseEr
     // `#` <alpha_ident>
     // `let` DECLS `in` EXPR `end`
 
-    ident, err := parse_ident(parser, false)
-    if err == nil {
+    
+    if ident, err := parse_ident(parser, false); err == nil {
         return ast.new_ident_expr(ident.name, ident.base_node), nil
     }
-    return nil, err;
-
+    if lit, node, err := parse_literal(parser); err == nil {
+        return ast.new_literal_expr(lit, node^), nil
+    }
     // TODO: add other cases
+    return nil, new_temp_err(fmt.tprintf("Expected atomic expression, but could not parse any"));
 
-    
 }

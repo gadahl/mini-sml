@@ -51,6 +51,12 @@ Literal_Expr :: struct {
 	using base_expr: Expr,
 	value: Literal_Value,
 }
+new_literal_expr :: proc(value: Literal_Value, base: Node) -> ^Literal_Expr {
+    literal := new(Literal_Expr)
+    literal ^= { base_node=base, value=value }
+    connect(&literal.base_expr, literal)
+    return literal
+}
 
 Ident_Expr :: struct {
 	using base_expr: Expr,

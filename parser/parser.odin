@@ -125,3 +125,36 @@ parse_ident :: proc(parser: ^Parser, is_symbolic: bool) -> (out: ^ast.Name, out_
         return nil, new_temp_err(fmt.tprintf("Expected %s, but got token of type %v", expected, t.type))
     }
 }
+
+parse_literal :: proc(parser: ^Parser) -> (out1: ast.Literal_Value, out2: ^ast.Node, out_err: ^ParseErr) {
+    parser_mark(parser)
+    defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
+
+    if !parser_has_next(parser) {
+        return nil, nil, new_temp_err(fmt.tprintf("Expected identifier, but reached end of file"))
+    }
+
+    t := parser.curr_token
+    parser_advance(parser)
+
+    val: ast.Literal_Value = nil
+
+    if t.type == lexer.Token_Type.INTEGER_LIT {
+        val = t.literal_value.(i32)
+    }
+    else if t.type == lexer.Token_Type.REAL_LIT {
+        val = t.literal_value.(f32)
+    }
+    else if t.type == lexer.Token_Type.STRING_LIT {
+        val = t.literal_value.(string)
+    }
+    
+    if val != nil {
+        node := new(ast.Node)
+        node ^= ast.Node{ line=t.line, offset=0 }
+        return val, node, nil
+    }
+    else {
+        return nil, nil, new_temp_err(fmt.tprintf("Expected literal value, but got token of type %v", t.type))
+    }
+}

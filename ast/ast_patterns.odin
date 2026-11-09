@@ -47,6 +47,12 @@ Literal_Pattern :: struct {
 	using base_pattern: Pattern,
 	value: Literal_Value,
 }
+new_literal_pattern :: proc(value: Literal_Value, base: Node) -> ^Literal_Pattern {
+    literal := new(Literal_Pattern)
+    literal ^= { base_node=base, value=value }
+    connect(&literal.base_pattern, literal)
+    return literal
+}
 
 Ident_Pattern :: struct {
 	using base_pattern: Pattern,

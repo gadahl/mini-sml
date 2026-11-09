@@ -388,6 +388,7 @@ process_unsigned_int :: proc(lexer: ^Lexer) -> Maybe(i32) {
     state := lexer_save(lexer)
 
     if _, ok := process_char('0', lexer).?; ok {
+        if !lexer_has_char(lexer) do return 0
         c := lexer_peek(lexer)
         if !is_alphanumeric(c) do return 0
     }

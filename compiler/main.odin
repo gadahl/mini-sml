@@ -8,7 +8,8 @@ import "../ast"
 
 
 main :: proc() {
-    script := "val a = b;;val rec c=d"//"a b c (d * e) F * g * h i (j K) L -> m -> n -> (o -> p q r S) T"
+    script := `val a = 5; val b = ~3.001; val c = "hello"; val ~1 = 0`
+    //"a b c (d * e) F * g * h i (j K) L -> m -> n -> (o -> p q r S) T"
     //"(a -> b -> c) -> a * b -> c"  // uncurry function
     //"x * y list -> (a * b) list"
 // `val x: real = 0.05;

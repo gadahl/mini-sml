@@ -33,11 +33,15 @@ parse_atomic_pattern :: proc(parser: ^Parser) -> (out: ^ast.Pattern, out_err: ^P
     // `[` LIST_CONTENTS_PATTERN? `]`
     // `{` PATTERN_FIELDS? `...`? `}`
     
-    ident, err := parse_ident(parser, false)
-    if err == nil {
+    
+    if ident, err := parse_ident(parser, false); err == nil {
         return ast.new_ident_pattern(ident.name, ident.base_node), nil
     }
-    return nil, err;
-
+    if lit, node, err := parse_literal(parser); err == nil {
+        return ast.new_literal_pattern(lit, node^), nil
+        // NOTE: we need to avoid having just a literal pattern on the lhs of an assignment
+    }
     // TODO: add other cases
+    return nil, new_temp_err(fmt.tprintf("Expected atomic pattern, but could not parse any"));
+
 }
