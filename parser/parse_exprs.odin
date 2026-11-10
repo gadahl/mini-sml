@@ -1,12 +1,18 @@
 package parser
 
 import "core:fmt"
+import str "core:strings"
 import "../lexer"
 import "../ast"
-import str "core:strings"
 
 
 parse_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr) {
+    // HANDLED_EXPR
+    // `raise` EXPR
+    // `if` EXPR `then` EXPR `else` EXPR
+    // `while` EXPR `do` EXPR
+    // `case` EXPR `of` MATCH
+    // `fn` MATCH
     return parse_handled_expr(parser)
 }
 
@@ -48,10 +54,12 @@ parse_typed_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr
 }
 
 parse_infix_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr) {
+    // APPL_EXPR (<sym_ident> APPL_EXPR)*
     return parse_appl_expr(parser)
 }
 
 parse_appl_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr) {
+    // ATOMIC_EXPR+
     return parse_atomic_expr(parser)
 }
 

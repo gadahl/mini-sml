@@ -1,9 +1,9 @@
 package parser
 
 import "core:fmt"
+import str "core:strings"
 import "../lexer"
 import "../ast"
-import str "core:strings"
 
 
 parse_type :: proc(parser: ^Parser) -> (out: ^ast.Type, out_err: ^ParseErr) {

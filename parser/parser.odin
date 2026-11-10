@@ -1,9 +1,9 @@
 package parser
 
 import "core:fmt"
+import str "core:strings"
 import "../lexer"
 import "../ast"
-import str "core:strings"
 
 
 Parser :: struct {

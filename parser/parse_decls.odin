@@ -1,9 +1,9 @@
 package parser
 
 import "core:fmt"
+import str "core:strings"
 import "../lexer"
 import "../ast"
-import str "core:strings"
 
 
 parse_decls :: proc(parser: ^Parser) -> (out: ^ast.Seq_Decl, out_err: ^ParseErr) {
