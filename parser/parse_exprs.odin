@@ -23,7 +23,28 @@ parse_andalso_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseE
 }
 
 parse_typed_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr) {
-    return parse_infix_expr(parser)
+    parser_mark(parser)
+    defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
+    
+    // INFIX_EXPR (`:` TYPE)?
+
+    infix, err := parse_infix_expr(parser)
+    if err != nil {
+        return nil, err
+    }
+
+    if err := parse_keyword(parser, ":"); err == nil {
+        // needs to have a type, otherwise invalid
+        
+        ty, err := parse_type(parser)
+        if err != nil {
+            return nil, err
+        }
+        return ast.new_typed_expr(infix, ty), nil
+    }
+    else {
+        return infix, nil
+    }
 }
 
 parse_infix_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr) {

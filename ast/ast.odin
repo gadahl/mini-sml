@@ -92,6 +92,12 @@ print_tree :: proc(n: Node, indent: int = 0) {
             fmt.printfln("%sLiteral_Expr: `%v`", spaces, e.value)
         case ^Ident_Expr:
             fmt.printfln("%sIdent_Expr: `%s`", spaces, e.name)
+        case ^Typed_Expr:
+            fmt.printfln("%sTyped_Expr ", spaces)
+            fmt.printfln("%s  expr=", spaces)
+            print_tree(e.expr, indent+2)
+            fmt.printfln("%s  type=", spaces)
+            print_tree(e.type, indent+2)
         case:
             fmt.printfln("%s%s", spaces, "[some expr]")
         }

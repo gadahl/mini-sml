@@ -118,6 +118,12 @@ Typed_Expr :: struct {
     expr: ^Expr,
     type: ^Type,
 }
+new_typed_expr :: proc(expr: ^Expr, ty: ^Type) -> ^Typed_Expr {
+    ty_ex := new(Typed_Expr)
+    ty_ex ^= Typed_Expr { expr=expr, type=ty, base_node=expr.base_node }
+    connect(&ty_ex.base_expr, ty_ex)
+    return ty_ex
+}
 
 Andalso_Expr :: struct {
     using base_expr: Expr,
