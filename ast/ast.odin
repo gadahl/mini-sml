@@ -110,6 +110,12 @@ print_tree :: proc(n: Node, indent: int = 0) {
             fmt.printfln("%sLiteral_Pattern: `%v`", spaces, p.value)
         case ^Ident_Pattern:
             fmt.printfln("%sIdent_Pattern: `%s`", spaces, p.name)
+        case ^Typed_Pattern:
+            fmt.printfln("%sTyped_Pattern ", spaces)
+            fmt.printfln("%s  pattern=", spaces)
+            print_tree(p.pattern, indent+2)
+            fmt.printfln("%s  type=", spaces)
+            print_tree(p.type, indent+2)
         case:
             fmt.printfln("%s%s", spaces, "[some pattern]")
         }

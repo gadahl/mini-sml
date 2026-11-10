@@ -7,9 +7,30 @@ import str "core:strings"
 
 
 parse_pattern :: proc(parser: ^Parser) -> (out: ^ast.Pattern, out_err: ^ParseErr) {
-    return parse_infix_pattern(parser)
-    // <alpha_ident> (`:` TYPE)* (as PATTERN)?
-    // INFIX_PATTERN (`:` TYPE)*
+    parser_mark(parser)
+    defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
+    
+    // <alpha_ident> (`:` TYPE)? (as PATTERN)? 
+    //                            ^ TODO LATER
+    // INFIX_PATTERN (`:` TYPE)?
+
+    infix, err := parse_infix_pattern(parser)
+    if err != nil {
+        return nil, err
+    }
+
+    if err := parse_keyword(parser, ":"); err == nil {
+        // needs to have a type, otherwise invalid
+        
+        ty, err := parse_type(parser)
+        if err != nil {
+            return nil, err
+        }
+        return ast.new_typed_pattern(infix, ty), nil
+    }
+    else {
+        return infix, nil
+    }
 }
 
 parse_infix_pattern :: proc(parser: ^Parser) -> (out: ^ast.Pattern, out_err: ^ParseErr) {

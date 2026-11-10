@@ -104,6 +104,12 @@ Typed_Pattern :: struct {
     pattern: ^Pattern,
     type: ^Type,
 }
+new_typed_pattern :: proc(pattern: ^Pattern, type: ^Type) -> ^Typed_Pattern {
+    typed := new(Typed_Pattern)
+    typed ^= Typed_Pattern { pattern=pattern, type=type, base_node=pattern.base_node }
+    connect(&typed.base_pattern, typed)
+    return typed
+}
 
 Layered_Pattern :: struct {
     using base_pattern: Pattern,
