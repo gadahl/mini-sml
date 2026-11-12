@@ -66,9 +66,8 @@ print_tree :: proc(n: Node, indent: int = 0) {
         case ^Bad_Decl:
             fmt.printfln("%s%T", spaces, d^)
         case ^Val_Decl:
-            fmt.printf("%sVal_Decl ", spaces)
-            if d.is_rec do fmt.print("(recursive) ")
-            fmt.printfln("\n%s  pattern=", spaces)
+            fmt.printfln("%sVal_Decl %s", spaces, d.is_rec ? "(recursive) " : "")
+            fmt.printfln("%s  pattern=", spaces)
             print_tree(d.lhs, indent+2)
             fmt.printfln("%s  expr=", spaces)
             print_tree(d.rhs, indent+2)
@@ -77,7 +76,9 @@ print_tree :: proc(n: Node, indent: int = 0) {
         case ^Local_Decl:
             fmt.printfln("%s%T", spaces, d^)
         case ^Infix_Decl:
-            fmt.printfln("%s%T", spaces, d^)
+            fmt.printfln("%s%T (%s-assoc, snugness=%d)", 
+                spaces, d^, d.is_right_assoc ? "R" : "L", d.snugness)
+            fmt.printfln("%s  names=%v", spaces, d.names)
         case ^Empty_Decl:
             fmt.printfln("%s%T", spaces, d^)
         case ^Seq_Decl:
@@ -89,9 +90,11 @@ print_tree :: proc(n: Node, indent: int = 0) {
         case ^Bad_Expr:
             fmt.printfln("%s%T", spaces, e^)
         case ^Literal_Expr:
-            fmt.printfln("%sLiteral_Expr: `%v`", spaces, e.value)
+            fmt.printfln("%s%T: `%v`", spaces, e^, e.value)
         case ^Ident_Expr:
-            fmt.printfln("%sIdent_Expr: `%s`", spaces, e.name)
+            fmt.printfln("%s%T: `%s`", spaces, e^, e.name)
+        case ^Infix_Chain_Expr:
+            print_interleaved("Infix_Chain_Expr", e.exprs[:], e.operators[:], indent)
         case ^Typed_Expr:
             fmt.printfln("%sTyped_Expr ", spaces)
             fmt.printfln("%s  expr=", spaces)
@@ -159,6 +162,21 @@ print_arr_node :: proc(name: string, nodes: $T/[]$E, indent: int = 0) {
     fmt.println("{")
     for n in nodes {
         print_tree(n, indent+1)
+    }
+    fmt.print(spaces)
+    fmt.println("}")
+}
+
+print_interleaved :: proc(name: string, nodes: $T/[]$E, operators: []string, indent: int = 0) {
+    spaces, err := str.repeat(" ", indent*2, context.temp_allocator)
+
+    fmt.printf("%s%s[%d] ", spaces, name, len(nodes))
+    fmt.println("{")
+
+    print_tree(nodes[0], indent+1)
+    for i in 1..<len(nodes) {
+        fmt.printfln("%s  %s", spaces, operators[i-1])
+        print_tree(nodes[i], indent+1)
     }
     fmt.print(spaces)
     fmt.println("}")

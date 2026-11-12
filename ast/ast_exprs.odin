@@ -1,5 +1,5 @@
 package ast
-
+import str "core:strings"
 
 Expr :: struct {
     using base_node: Node, 
@@ -16,6 +16,7 @@ Any_Expr :: union {
     ^Record_Expr,
     ^Let_Expr,
     ^Appl_Expr,
+    ^Infix_Chain_Expr,
     ^Infix_Expr,
     ^Typed_Expr,
     ^Andalso_Expr,
@@ -103,7 +104,25 @@ Let_Expr :: struct {
 Appl_Expr :: struct {
     using base_expr: Expr,
     function: ^Expr,
-    args: []Expr,
+    args: []^Expr,
+}
+new_appl_expr :: proc(function: ^Expr, args: []^Expr, base: Node) -> ^Appl_Expr {
+    appl := new(Appl_Expr)
+    appl ^= Appl_Expr { function=function, args=args, base_node=base }
+    connect(&appl.base_expr, appl)
+    return appl
+}
+
+Infix_Chain_Expr :: struct {
+    using base_expr: Expr,
+    operators: [dynamic]string,
+    exprs: [dynamic]^Expr,
+}
+new_infix_chain_expr :: proc(ops: [dynamic]string, exprs: [dynamic]^Expr) -> ^Infix_Chain_Expr {
+    infix_chain := new(Infix_Chain_Expr)
+    infix_chain ^= Infix_Chain_Expr { operators=ops, exprs=exprs, base_node=exprs[0].base_node }
+    connect(&infix_chain.base_expr, infix_chain)
+    return infix_chain
 }
 
 Infix_Expr :: struct {
@@ -111,6 +130,12 @@ Infix_Expr :: struct {
     operator: string,
     left: ^Expr,
     right: ^Expr,
+}
+new_infix_expr :: proc(op: string, left: ^Expr, right: ^Expr) -> ^Infix_Expr {
+    infix := new(Infix_Expr)
+    infix ^= Infix_Expr { operator=str.clone(op), left=left, right=right, base_node=left.base_node }
+    connect(&infix.base_expr, infix)
+    return infix
 }
 
 Typed_Expr :: struct {

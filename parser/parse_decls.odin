@@ -58,10 +58,10 @@ parse_decl :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) {
         // must parse: DECLS `in` DECLS `end`
     }
     else if err = parse_keyword(parser, "infix"); err == nil {
-        // must parse: INFIX_DETAILS
+        return parse_infix_details(parser, false)
     }
     else if err = parse_keyword(parser, "infixr"); err == nil {
-        // must parse: INFIX_DETAILS
+        return parse_infix_details(parser, true)
     }
     else {
         return ast.new_empty_decl(ast.Node{ }), nil
@@ -97,4 +97,38 @@ parse_val_bind :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) 
     }
 
     return ast.new_val_decl(is_rec, pat, expr, pat.base_node), nil
+}
+
+parse_infix_details :: proc(parser: ^Parser, is_right_assoc: bool) -> (out: ^ast.Infix_Decl, out_err: ^ParseErr) {
+    parser_mark(parser)
+    defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
+
+    // <literal>? <sym_ident>+
+    
+    snugness: int = 0 // default snugness of 0
+    lit, node, err := parse_literal(parser)
+    if err == nil {
+        if num, valid := lit.(i32); valid {
+            snugness = int(num)
+        }
+        else {
+            return nil, new_temp_err("infix keyword must be followed by a positive number or operators")
+        }
+    }
+
+    first_ident, ident_err := parse_ident(parser, true)
+    if ident_err != nil {
+        return nil, ident_err
+    }
+
+    names := make([dynamic]string)
+    append(&names, str.clone(first_ident.name))
+
+    for {
+        ident, ident_err := parse_ident(parser, true)
+        if ident_err != nil do break
+        append(&names, str.clone(ident.name))
+    }
+
+    return ast.new_infix_decl(is_right_assoc, snugness, names, first_ident.base_node), nil
 }

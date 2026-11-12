@@ -54,8 +54,41 @@ parse_typed_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr
 }
 
 parse_infix_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr) {
+    parser_mark(parser)
+    defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
+
     // APPL_EXPR (<sym_ident> APPL_EXPR)*
-    return parse_appl_expr(parser)
+    
+    first_appl, appl_err := parse_appl_expr(parser)
+    if appl_err != nil do return nil, appl_err
+    
+    is_solo := true
+    ops: [dynamic]string
+    exprs: [dynamic]^ast.Expr
+
+    for {   
+        op, op_err := parse_ident(parser, true)
+        if op_err != nil do break;
+        
+        appl, appl_err := parse_appl_expr(parser)
+        if appl_err != nil {
+            appl = ast.new_bad_expr(ast.Node{}) // TODO: store error here
+            fmt.println(appl_err.message)
+        }
+
+        if is_solo {
+            // this is the first time we know that we have an operator and two exprs
+            is_solo = false
+            ops = make([dynamic]string)
+            exprs = make([dynamic]^ast.Expr)
+            append(&exprs, first_appl)
+        }
+        append(&ops, str.clone(op.name))
+        append(&exprs, appl)
+    }
+
+    if is_solo do return first_appl,                           nil
+    else       do return ast.new_infix_chain_expr(ops, exprs), nil
 }
 
 parse_appl_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr) {

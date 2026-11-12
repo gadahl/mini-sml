@@ -77,12 +77,13 @@ new_local_decl :: proc(locals: ^Decl, globals: ^Decl, base: Node) -> ^Local_Decl
 
 Infix_Decl :: struct {
     using base_decl: Decl,
+    is_right_assoc: bool,
     snugness: int,
     names: [dynamic]string,
 }
-new_infix_decl :: proc(snugness: int, names: [dynamic]string, base: Node) -> ^Infix_Decl {
+new_infix_decl :: proc(is_right_assoc: bool, snugness: int, names: [dynamic]string, base: Node) -> ^Infix_Decl {
     infix_decl := new(Infix_Decl)
-    infix_decl ^= Infix_Decl { snugness=snugness, names=names, base_node=base }
+    infix_decl ^= Infix_Decl { is_right_assoc=is_right_assoc, snugness=snugness, names=names, base_node=base }
     connect(&infix_decl.base_decl, infix_decl)
     return infix_decl
 }
