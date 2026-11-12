@@ -104,11 +104,11 @@ Let_Expr :: struct {
 Appl_Expr :: struct {
     using base_expr: Expr,
     function: ^Expr,
-    args: []^Expr,
+    args: [dynamic]^Expr,
 }
-new_appl_expr :: proc(function: ^Expr, args: []^Expr, base: Node) -> ^Appl_Expr {
+new_appl_expr :: proc(function: ^Expr, args: [dynamic]^Expr) -> ^Appl_Expr {
     appl := new(Appl_Expr)
-    appl ^= Appl_Expr { function=function, args=args, base_node=base }
+    appl ^= Appl_Expr { function=function, args=args, base_node=function.base_node }
     connect(&appl.base_expr, appl)
     return appl
 }

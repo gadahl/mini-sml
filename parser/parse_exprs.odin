@@ -92,8 +92,31 @@ parse_infix_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr
 }
 
 parse_appl_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr) {
+    parser_mark(parser)
+    defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
+    
     // ATOMIC_EXPR+
-    return parse_atomic_expr(parser)
+    
+    first_atom, atom_err := parse_atomic_expr(parser)
+    if atom_err != nil do return nil, atom_err
+
+    is_solo := true
+    exprs: [dynamic]^ast.Expr
+
+    for {
+        atom, atom_err := parse_appl_expr(parser)
+        if atom_err != nil do break;
+        
+        if is_solo {
+            is_solo = false
+            exprs = make([dynamic]^ast.Expr)
+        }
+        append(&exprs, atom)
+    }
+
+    if is_solo do return first_atom, nil
+
+    return ast.new_appl_expr(first_atom, exprs), nil
 }
 
 parse_atomic_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr) {

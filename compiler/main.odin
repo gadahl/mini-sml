@@ -16,7 +16,8 @@ main :: proc() {
     infix 6 + -;
     infixr / *;
     val x = a + b;
-    val y = x / a * b`
+    val y = x / a * b;
+    val z = f x`
     //"a b c (d * e) F * g * h i (j K) L -> m -> n -> (o -> p q r S) T"
     //"(a -> b -> c) -> a * b -> c"  // uncurry function
     //"x * y list -> (a * b) list"

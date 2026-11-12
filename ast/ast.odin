@@ -93,6 +93,11 @@ print_tree :: proc(n: Node, indent: int = 0) {
             fmt.printfln("%s%T: `%v`", spaces, e^, e.value)
         case ^Ident_Expr:
             fmt.printfln("%s%T: `%s`", spaces, e^, e.name)
+        case ^Appl_Expr:
+            fmt.printfln("%s%T: ", spaces, e^)
+            fmt.printfln("%s  function=", spaces)
+            print_tree(e.function, indent+2)
+            print_arr_node("args", e.args[:], indent+1)
         case ^Infix_Chain_Expr:
             print_interleaved("Infix_Chain_Expr", e.exprs[:], e.operators[:], indent)
         case ^Typed_Expr:
@@ -175,7 +180,7 @@ print_interleaved :: proc(name: string, nodes: $T/[]$E, operators: []string, ind
 
     print_tree(nodes[0], indent+1)
     for i in 1..<len(nodes) {
-        fmt.printfln("%s  %s", spaces, operators[i-1])
+        fmt.printfln("%s(%s)", spaces, operators[i-1])
         print_tree(nodes[i], indent+1)
     }
     fmt.print(spaces)
