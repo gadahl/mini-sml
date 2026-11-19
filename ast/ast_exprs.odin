@@ -74,6 +74,12 @@ Label_Expr :: struct {
 	using base_expr: Expr,
 	label: string,
 }
+new_label_expr :: proc(name: string, base: Node) -> ^Label_Expr {
+    label := new(Label_Expr)
+    label ^= Label_Expr { label=name, base_node=base }
+    connect(&label.base_expr, label)
+    return label
+}
 
 List_Expr :: struct {
 	using base_expr: Expr,

@@ -147,6 +147,38 @@ parse_atomic_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseEr
 
         return expr, nil
     }
+    if err := parse_keyword(parser, "["); err == nil {
+        list, list_err := cast(^ast.List_Expr)nil, 
+                            new_temp_err("List parsing not yet implemented")
+                            // parse_list_contents(parser)
+        if list_err != nil do return nil, list_err
+
+        end_err := parse_keyword(parser, "]")
+        if end_err != nil do return nil, end_err
+
+        return list, nil
+    }
+    if err := parse_keyword(parser, "{"); err == nil {
+        record, record_err := cast(^ast.Record_Expr)nil, 
+                            new_temp_err("Record parsing not yet implemented")
+                            // parse_record_contents(parser)
+        if record_err != nil do return nil, record_err
+
+        end_err := parse_keyword(parser, "}")
+        if end_err != nil do return nil, end_err
+
+        return record, nil
+    }
+    if err := parse_keyword(parser, "#"); err == nil {
+        ident, ident_err := parse_ident(parser, false)
+        if ident_err != nil do return nil, ident_err
+
+        return ast.new_label_expr(str.clone(ident.name), ident.base_node), nil
+    }
+    if err := parse_keyword(parser, "let"); err == nil {
+        // let <exprs> in <expr> end
+        return nil, new_temp_err("'Let' blocks are not implemented yet")
+    }
     return nil, new_temp_err(fmt.tprintf("Expected atomic expression, but could not parse any"))
 
 }
