@@ -62,6 +62,11 @@ Fun_Arm :: struct{
     args: [dynamic]^Pattern,
     expr: ^Expr,
 }
+new_fun_arm :: proc(name: string, args: [dynamic]^Pattern, expr: ^Expr) -> ^Fun_Arm {
+    fun_arm := new(Fun_Arm)
+    fun_arm ^= Fun_Arm { name=name, args=args, expr=expr }
+    return fun_arm
+}
 
 Local_Decl :: struct {
     using base_decl: Decl,

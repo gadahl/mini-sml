@@ -72,7 +72,7 @@ print_tree :: proc(n: Node, indent: int = 0) {
             fmt.printfln("%s  expr=", spaces)
             print_tree(d.rhs, indent+2)
         case ^Fun_Decl:
-            fmt.printfln("%s%T", spaces, d^)
+            print_fun_decl(d, indent)
         case ^Local_Decl:
             fmt.printfln("%s%T", spaces, d^)
         case ^Infix_Decl:
@@ -141,9 +141,10 @@ print_tree :: proc(n: Node, indent: int = 0) {
         case ^Tuple_Type:
             print_arr_node("Tuple_Type", t.components[:], indent)
         case ^Func_Type:
-            fmt.printfln("%sFunc_Type: \n%s  domain=", spaces, spaces)
+            fmt.printfln("%sFunc_Type: ", spaces)
+            fmt.printfln("%s  domain=", spaces)
             print_tree(t.domain, indent+2)
-            fmt.printfln("%scodomain=", spaces)
+            fmt.printfln("%s  codomain=", spaces)
             print_tree(t.codomain, indent+2)
         }
     
@@ -185,4 +186,26 @@ print_interleaved :: proc(name: string, nodes: $T/[]$E, operators: []string, ind
     }
     fmt.print(spaces)
     fmt.println("}")
+}
+
+print_fun_decl :: proc(decl: ^Fun_Decl, indent: int = 0) {
+    spaces, err := str.repeat(" ", indent*2, context.temp_allocator)
+
+    fmt.printf("%sFun_Decl[%d] (name: `%s`) ", spaces, len(decl.arms), decl.arms[0].name)
+    fmt.println("{")
+    for n in decl.arms {
+        print_fun_arm(n, indent+1)
+    }
+    fmt.print(spaces)
+    fmt.println("}")
+}
+
+print_fun_arm :: proc(arm: ^Fun_Arm, indent: int = 0) {
+    spaces, err := str.repeat(" ", indent*2, context.temp_allocator)
+
+    fmt.printfln("%s%s", spaces, "Fun_Arm")
+    print_arr_node("args", arm.args[:], indent+1);
+    
+    fmt.printfln("%s  expr=", spaces)
+    print_tree(arm.expr, indent+2)
 }

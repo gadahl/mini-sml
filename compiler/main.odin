@@ -9,6 +9,20 @@ import "../ast"
 
 main :: proc() {
     script := `
+    infix 6 + -;
+    infix 7 * /;
+    fun f a b = a + b + a*b;
+    fun g x = f x 2;
+    fun h 0 = 1
+      | h n = h (n-1) + 1;
+    fun h' 0 = 1
+      | h' 1 = 3
+      | h' 2 = 5
+      | h' n = h (n-1) + 1;
+    val k = g 3 + f 4 3;
+    `
+    
+    /*`
     val a = 5 : int; 
     val b: real = ~3.001; 
     val c = "hello"; 
@@ -17,7 +31,8 @@ main :: proc() {
     infixr / *;
     val x = a + b;
     val y = x / a * b;
-    val z = f x`
+    val z = f x;
+    val g = f : int -> real`*/
     //"a b c (d * e) F * g * h i (j K) L -> m -> n -> (o -> p q r S) T"
     //"(a -> b -> c) -> a * b -> c"  // uncurry function
     //"x * y list -> (a * b) list"

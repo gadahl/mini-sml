@@ -7,7 +7,21 @@ import "../ast"
 
 
 parse_type :: proc(parser: ^Parser) -> (out: ^ast.Type, out_err: ^ParseErr) {
-    return parse_tuple_type(parser)
+    parser_mark(parser)
+    defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
+    
+    // TUPLE_TYPE `->` TYPE
+    
+    tuple_type, err := parse_tuple_type(parser)
+    if err != nil do return nil, err
+
+    arrow_err := parse_keyword(parser, "->")
+    if arrow_err != nil do return tuple_type, nil
+
+    type, err2 := parse_type(parser)
+    if err2 != nil do return nil, err2
+
+    return ast.new_func_type(tuple_type, type), nil
 }
 
 parse_tuple_type :: proc(parser: ^Parser) -> (out: ^ast.Type, out_err: ^ParseErr) {

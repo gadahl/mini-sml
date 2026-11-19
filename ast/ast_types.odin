@@ -69,3 +69,9 @@ Func_Type :: struct {
     domain: ^Type,
     codomain: ^Type,
 }
+new_func_type :: proc(domain: ^Type, codomain: ^Type) -> ^Func_Type {
+    func := new(Func_Type)
+    func ^= Func_Type { domain=domain, codomain=codomain, base_node=domain.base_node }
+    connect(&func.base_type, func)
+    return func
+}

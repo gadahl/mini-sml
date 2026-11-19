@@ -104,7 +104,7 @@ parse_appl_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr)
     exprs: [dynamic]^ast.Expr
 
     for {
-        atom, atom_err := parse_appl_expr(parser)
+        atom, atom_err := parse_atomic_expr(parser)
         if atom_err != nil do break;
         
         if is_solo {
@@ -138,7 +138,15 @@ parse_atomic_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseEr
     if lit, node, err := parse_literal(parser); err == nil {
         return ast.new_literal_expr(lit, node^), nil
     }
-    // TODO: add other cases
-    return nil, new_temp_err(fmt.tprintf("Expected atomic expression, but could not parse any"));
+    if err := parse_keyword(parser, "("); err == nil {
+        expr, expr_err := parse_expr(parser)
+        if expr_err != nil do return nil, expr_err
+
+        end_err := parse_keyword(parser, ")")
+        if end_err != nil do return nil, end_err
+
+        return expr, nil
+    }
+    return nil, new_temp_err(fmt.tprintf("Expected atomic expression, but could not parse any"))
 
 }

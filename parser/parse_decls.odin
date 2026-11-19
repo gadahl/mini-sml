@@ -52,7 +52,7 @@ parse_decl :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) {
         return parse_val_binds(parser)
     }
     else if err = parse_keyword(parser, "fun"); err == nil {
-        // must parse: FUN_BINDS
+        return parse_fun_binds(parser)
     }
     else if err = parse_keyword(parser, "local"); err == nil {
         // must parse: DECLS `in` DECLS `end`
@@ -97,6 +97,75 @@ parse_val_bind :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) 
     }
 
     return ast.new_val_decl(is_rec, pat, expr, pat.base_node), nil
+}
+
+parse_fun_binds :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) {
+    return parse_fun_bind(parser)
+}
+
+parse_fun_bind :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) {
+    parser_mark(parser)
+    defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
+
+    first_arm, first_err := parse_fun_arm(parser)
+    if first_err != nil do return nil, first_err
+    
+    arms := make([dynamic]^ast.Fun_Arm)
+    append(&arms, first_arm)
+
+    for {
+        if err := parse_keyword(parser, "|"); err != nil {
+            break;
+        }
+        
+        next_arm, arm_err := parse_fun_arm(parser)
+        if arm_err != nil do return nil, arm_err
+        
+        append(&arms, next_arm)
+    }
+
+    num_args := len(first_arm.args) // must be the same for all arms
+    for arm in arms {
+        if len(arm.args) != num_args {
+            return ast.new_bad_decl(ast.Node{}), nil // TODO: error handling
+        }
+    }
+    
+    return ast.new_fun_decl(arms, ast.Node{}), nil // TODO: replace ast.Node{}
+}
+
+parse_fun_arm :: proc(parser: ^Parser) -> (out: ^ast.Fun_Arm, out_err: ^ParseErr) {
+    parser_mark(parser)
+    defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
+    
+    // TODO: infix declarations, typed signatures?
+
+    name, name_err := parse_ident(parser, false)
+    if name_err != nil do return nil, name_err
+
+    args := make([dynamic]^ast.Pattern)
+
+    first_arg, arg_err := parse_atomic_pattern(parser)
+    if arg_err != nil do return nil, arg_err
+    append(&args, first_arg)
+
+    for {
+        if err := parse_keyword(parser, "="); err == nil {
+            break;
+        }
+
+        next_arg, arg_err := parse_atomic_pattern(parser)
+        if arg_err != nil do return nil, arg_err
+
+        append(&args, next_arg)
+    }
+
+    expr, expr_err := parse_expr(parser)
+    if expr_err != nil {
+        return nil, expr_err
+    }
+
+    return ast.new_fun_arm(str.clone(name.name), args, expr), nil
 }
 
 parse_infix_details :: proc(parser: ^Parser, is_right_assoc: bool) -> (out: ^ast.Infix_Decl, out_err: ^ParseErr) {
