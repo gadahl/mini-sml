@@ -7,12 +7,38 @@ import "../ast"
 
 
 parse_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr) {
+    parser_mark(parser)
+    defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
+
     // HANDLED_EXPR
     // `raise` EXPR
     // `if` EXPR `then` EXPR `else` EXPR
     // `while` EXPR `do` EXPR
     // `case` EXPR `of` MATCH
     // `fn` MATCH
+
+    if err := parse_keyword(parser, "if"); err == nil {
+        
+        cond_expr, cond_err := parse_expr(parser)
+        if cond_err != nil do return nil, cond_err
+
+        if parse_keyword(parser, "then") != nil {
+            return nil, err
+        }
+
+        true_expr, true_err := parse_expr(parser)
+        if true_err != nil do return nil, true_err
+
+        if parse_keyword(parser, "else") != nil {
+            return nil, err
+        }
+
+        false_expr, false_err := parse_expr(parser)
+        if false_err != nil do return nil, false_err
+
+        return ast.new_if_expr(cond_expr, true_expr, false_expr), nil
+    }
+
     return parse_handled_expr(parser)
 }
 

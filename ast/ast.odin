@@ -106,6 +106,14 @@ print_tree :: proc(n: Node, indent: int = 0) {
             print_tree(e.expr, indent+2)
             fmt.printfln("%s  type=", spaces)
             print_tree(e.type, indent+2)
+        case ^If_Expr:
+            fmt.printfln("%sIf_Expr ", spaces)
+            fmt.printfln("%s  condition=", spaces)
+            print_tree(e.condition, indent+2)
+            fmt.printfln("%s  true_branch=", spaces)
+            print_tree(e.true_branch, indent+2)
+            fmt.printfln("%s  false_branch=", spaces)
+            print_tree(e.false_branch, indent+2)
         case:
             fmt.printfln("%s%s", spaces, "[some expr]")
         }

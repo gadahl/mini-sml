@@ -185,6 +185,15 @@ If_Expr :: struct {
     true_branch: ^Expr,
     false_branch: ^Expr, 
 }
+new_if_expr :: proc(condition: ^Expr, true_branch: ^Expr, false_branch: ^Expr) -> ^If_Expr {
+    if_expr := new(If_Expr)
+    if_expr ^= If_Expr { 
+        condition=condition, true_branch=true_branch, 
+        false_branch=false_branch, base_node=condition.base_node 
+    }
+    connect(&if_expr.base_expr, if_expr)
+    return if_expr
+}
 
 While_Expr :: struct {
     using base_expr: Expr,

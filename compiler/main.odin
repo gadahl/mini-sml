@@ -11,6 +11,8 @@ main :: proc() {
     script := `
     infix 6 + -;
     infix 7 * /;
+    val v1 = 5;
+    val v2 = if v1 < 5 then 5 else v1;
     fun f a b = a + b + a*b;
     fun g x = f x 2;
     fun h 0 = 1
