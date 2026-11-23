@@ -48,6 +48,12 @@ parse_decl :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) {
     // `infixr` INFIX_DETAILS
     // ε
 
+    // NOTE: this doesnt let you put empty decls in the middle of the file if they don't end with ; 
+    empty_err := peek_keyword(parser, ";")
+    if empty_err == nil || !parser_has_next(parser) {
+        return ast.new_empty_decl(ast.Node{ }), nil
+    }
+
     if err := parse_keyword(parser, "val"); err == nil {
         return parse_val_binds(parser)
     }
@@ -56,6 +62,7 @@ parse_decl :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) {
     }
     else if err = parse_keyword(parser, "local"); err == nil {
         // must parse: DECLS `in` DECLS `end`
+        return nil, new_temp_err("unimplemented decl")
     }
     else if err = parse_keyword(parser, "infix"); err == nil {
         return parse_infix_details(parser, false)
@@ -63,10 +70,7 @@ parse_decl :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) {
     else if err = parse_keyword(parser, "infixr"); err == nil {
         return parse_infix_details(parser, true)
     }
-    else {
-        return ast.new_empty_decl(ast.Node{ }), nil
-    }
-    return nil, new_temp_err("unimplemented decl")
+    return nil, new_temp_err("could not parse decl") 
 }
 
 parse_val_binds :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) {

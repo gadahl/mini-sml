@@ -105,6 +105,28 @@ parse_keyword :: proc(parser: ^Parser, keyword: string) -> (out_err: ^ParseErr) 
     return nil
 }
 
+peek_keyword :: proc(parser: ^Parser, keyword: string) -> (out_err: ^ParseErr) {
+    parser_mark(parser)
+    defer parser_rewind(parser)
+
+    if !parser_has_next(parser) {
+        return new_temp_err(fmt.tprintf("Expected keyword `%s`, but reached end of file", keyword))
+    }
+
+    t := parser.curr_token
+    parser_advance(parser)
+
+    if t.type != lexer.Token_Type.RESERVED_KEYWORD {
+        return new_temp_err(fmt.tprintf("Expected keyword `%s`, but got token of type %v", keyword, t.type))
+    }
+
+    if t.text != keyword {
+        return new_temp_err(fmt.tprintf("Expected keyword `%s`, but got `%s`", keyword, t.text))
+    }
+
+    return nil
+}
+
 parse_ident :: proc(parser: ^Parser, is_symbolic: bool) -> (out: ^ast.Name, out_err: ^ParseErr) {
     parser_mark(parser)
     defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
