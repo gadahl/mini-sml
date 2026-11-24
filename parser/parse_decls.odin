@@ -48,12 +48,17 @@ parse_decl :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) {
     // `infixr` INFIX_DETAILS
     // ε
 
-    // NOTE: this doesnt let you put empty decls in the middle of the file if they don't end with ; 
-    empty_err := peek_keyword(parser, ";")
-    if empty_err == nil || !parser_has_next(parser) {
+    
+    is_empty := !parser_has_next(parser)
+    if !is_empty {
+        t := parser.curr_token
+        is_empty = (t.type == .RESERVED_KEYWORD && (t.text == ";" || t.text == "in" || t.text == "end"))
+        // NOTE: this ^ means that empty decls need to be followed with `;`, `in`, `end`, or EOF
+    }
+    if is_empty {
         return ast.new_empty_decl(ast.Node{ }), nil
     }
-
+    
     if err := parse_keyword(parser, "val"); err == nil {
         return parse_val_binds(parser)
     }
