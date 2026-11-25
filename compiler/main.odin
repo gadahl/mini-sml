@@ -7,7 +7,14 @@ import "../ast"
 
 
 main :: proc() {
-    test_if_parsing()
+    test_append_marks_function()
+}
+
+test_o_parsing :: proc() {
+    script := `
+    val a = "str";
+    `
+    test_script(&script)
 }
 
 test_if_parsing :: proc() {

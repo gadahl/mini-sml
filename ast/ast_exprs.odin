@@ -103,8 +103,14 @@ Expr_Field :: struct {
 
 Let_Expr :: struct {
     using base_expr: Expr,
-    locals: []Decl,
+    locals: ^Seq_Decl,
     result: ^Expr,
+}
+new_let_expr :: proc(decls: ^Seq_Decl, expr: ^Expr) -> ^Let_Expr {
+    let_expr := new(Let_Expr)
+    let_expr ^= Let_Expr { locals=decls, result=expr, base_node=decls.base_node }
+    connect(&let_expr.base_expr, let_expr)
+    return let_expr
 }
 
 Appl_Expr :: struct {

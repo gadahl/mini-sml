@@ -16,9 +16,11 @@ parse_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr) {
     // `while` EXPR `do` EXPR
     // `case` EXPR `of` MATCH
     // `fn` MATCH
-
+    
+    if err := parse_keyword(parser, "raise"); err == nil {
+        return nil, new_temp_err("`raise` expr not implemented")
+    }
     if err := parse_keyword(parser, "if"); err == nil {
-        
         cond_expr, cond_err := parse_expr(parser)
         if cond_err != nil do return nil, cond_err
 
@@ -37,6 +39,15 @@ parse_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr) {
         if false_err != nil do return nil, false_err
 
         return ast.new_if_expr(cond_expr, true_expr, false_expr), nil
+    }
+    if err := parse_keyword(parser, "while"); err == nil {
+        return nil, new_temp_err("`while` expr not implemented")
+    }
+    if err := parse_keyword(parser, "case"); err == nil {
+        return nil, new_temp_err("`case` expr not implemented")
+    }
+    if err := parse_keyword(parser, "fn"); err == nil {
+        return nil, new_temp_err("`fn` expr not implemented")
     }
 
     return parse_handled_expr(parser)
@@ -202,9 +213,22 @@ parse_atomic_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseEr
         return ast.new_label_expr(str.clone(ident.name), ident.base_node), nil
     }
     if err := parse_keyword(parser, "let"); err == nil {
-        // let <exprs> in <expr> end
-        return nil, new_temp_err("'Let' blocks are not implemented yet")
+        // let <decls> in <exprs> end
+        
+        decls, decls_err := parse_decls(parser)
+        if decls_err != nil do return nil, decls_err
+        
+        in_err := parse_keyword(parser, "in")
+        if in_err != nil do return nil, in_err
+        
+        // TODO: should parse multiple exprs separated by `;`
+        expr, expr_err := parse_expr(parser)
+        if expr_err != nil do return nil, expr_err
+        
+        end_err := parse_keyword(parser, "end")
+        if end_err != nil do return nil, end_err
+
+        return ast.new_let_expr(decls, expr), nil
     }
     return nil, new_temp_err(fmt.tprintf("Expected atomic expression, but could not parse any"))
-
 }

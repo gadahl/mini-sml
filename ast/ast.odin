@@ -93,6 +93,11 @@ print_tree :: proc(n: Node, indent: int = 0) {
             fmt.printfln("%s%T: `%v`", spaces, e^, e.value)
         case ^Ident_Expr:
             fmt.printfln("%s%T: `%s`", spaces, e^, e.name)
+        case ^Let_Expr:
+            fmt.printfln("%s%T: ", spaces, e^)
+            print_arr_node("locals", e.locals.decls[:], indent+1)
+            fmt.printfln("%s  expr=", spaces)
+            print_tree(e.result, indent+2)
         case ^Appl_Expr:
             fmt.printfln("%s%T: ", spaces, e^)
             fmt.printfln("%s  function=", spaces)
