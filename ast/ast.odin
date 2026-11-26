@@ -86,13 +86,21 @@ print_tree :: proc(n: Node, indent: int = 0) {
         }
     
     case ^Expr:
-        #partial switch e in v.expr_variant {
+        switch e in v.expr_variant {
         case ^Bad_Expr:
             fmt.printfln("%s%T", spaces, e^)
         case ^Literal_Expr:
             fmt.printfln("%s%T: `%v`", spaces, e^, e.value)
         case ^Ident_Expr:
             fmt.printfln("%s%T: `%s`", spaces, e^, e.name)
+        case ^Label_Expr:
+            fmt.printfln("%s%T: `%s`", spaces, e^, e.label)
+        case ^List_Expr:
+            print_arr_node("List_Expr", e.elements, indent)
+        case ^Tuple_Expr:
+            print_arr_node("Tuple_Expr", e.elements, indent)
+        case ^Record_Expr:
+            print_arr_node("Record_Expr", e.fields, indent)
         case ^Let_Expr:
             fmt.printfln("%s%T: ", spaces, e^)
             print_arr_node("locals", e.locals.decls[:], indent+1)
@@ -105,22 +113,49 @@ print_tree :: proc(n: Node, indent: int = 0) {
             print_arr_node("args", e.args[:], indent+1)
         case ^Infix_Chain_Expr:
             print_interleaved("Infix_Chain_Expr", e.exprs[:], e.operators[:], indent)
+        case ^Infix_Expr:
+            fmt.printfln("%s%T: [unimplemented]", spaces, e^)
         case ^Typed_Expr:
-            fmt.printfln("%sTyped_Expr ", spaces)
+            fmt.printfln("%s%T ", spaces, e^)
             fmt.printfln("%s  expr=", spaces)
             print_tree(e.expr, indent+2)
             fmt.printfln("%s  type=", spaces)
             print_tree(e.type, indent+2)
+        case ^Andalso_Expr:
+            fmt.printfln("%s%T ", spaces, e^)
+            print_tree(e.left, indent+1)
+            print_tree(e.right, indent+1)
+        case ^Orelse_Expr:
+            fmt.printfln("%s%T ", spaces, e^)
+            print_tree(e.left, indent+1)
+            print_tree(e.right, indent+1)
+        case ^Handle_Expr:
+            fmt.printfln("%s%T ", spaces, e^)
+            fmt.printfln("%s  expr=", spaces)
+            print_tree(e.expr, indent+2)
+            fmt.printfln("%s  rules=[unimplemented]", spaces)
+            // todo: stuff print_arr_node("rules", e.rules[:], indent+1)
+        case ^Raise_Expr:
+            fmt.printfln("%s%T: ", spaces, e^)
+            print_tree(e.raised, indent+1)
         case ^If_Expr:
-            fmt.printfln("%sIf_Expr ", spaces)
+            fmt.printfln("%s%T ", spaces, e^)
             fmt.printfln("%s  condition=", spaces)
             print_tree(e.condition, indent+2)
             fmt.printfln("%s  true_branch=", spaces)
             print_tree(e.true_branch, indent+2)
             fmt.printfln("%s  false_branch=", spaces)
             print_tree(e.false_branch, indent+2)
+        case ^While_Expr:
+            fmt.printfln("%s%T: [unimplemented]", spaces, e^)
+        case ^Case_Expr:
+            fmt.printfln("%s%T: [unimplemented]", spaces, e^)
+        case ^Fn_Expr:
+            fmt.printfln("%s%T: [unimplemented]", spaces, e^)
+        case ^Seq_Expr:
+            fmt.printfln("%s%T: [unimplemented]", spaces, e^)
         case:
-            fmt.printfln("%s%s", spaces, "[some expr]")
+            fmt.printfln("%s[undefined expr]", spaces)
         }
 
     case ^Pattern:
