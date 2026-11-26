@@ -83,22 +83,46 @@ new_label_expr :: proc(name: string, base: Node) -> ^Label_Expr {
 
 List_Expr :: struct {
 	using base_expr: Expr,
-	elements: []Expr,
+	elements: []^Expr,
+}
+new_list_expr :: proc(elements: []^Expr, base: Node) -> ^List_Expr {
+    list := new(List_Expr)
+    list ^= List_Expr { elements=elements, base_node=base }
+    connect(&list.base_expr, list)
+    return list
 }
 
 Tuple_Expr :: struct {
     using base_expr: Expr,
-    elements: []Expr,
+    elements: []^Expr,
+}
+new_tuple_expr :: proc(elements: []^Expr, base: Node) -> ^Tuple_Expr {
+    tuple := new(Tuple_Expr)
+    tuple ^= Tuple_Expr { elements=elements, base_node=base }
+    connect(&tuple.base_expr, tuple)
+    return tuple
 }
 
 Record_Expr :: struct {
     using base_expr: Expr,
-    fields: []Expr_Field,
+    fields: []^Expr_Field,
+}
+new_record_expr :: proc(fields: []^Expr_Field, base: Node) -> ^Record_Expr {
+    record := new(Record_Expr)
+    record ^= Record_Expr { fields=fields, base_node=base }
+    connect(&record.base_expr, record)
+    return record
 }
 Expr_Field :: struct {
     using base_node: Node,
     label: string,
     expr: ^Expr,
+}
+new_expr_field :: proc(label: string, expr: ^Expr) -> ^Expr_Field {
+    field := new(Expr_Field)
+    field ^= Expr_Field { label=label, base_node=expr.base_node }
+    connect(&field.base_node, field)
+    return field
 }
 
 Let_Expr :: struct {
@@ -206,16 +230,34 @@ While_Expr :: struct {
     condition: ^Expr,
     body: ^Expr,
 }
+new_while_expr :: proc(condition: ^Expr, body: ^Expr) -> ^While_Expr {
+    while_expr := new(While_Expr)
+    while_expr ^= While_Expr { condition=condition, body=body, base_node=condition.base_node }
+    connect(&while_expr.base_expr, while_expr)
+    return while_expr
+}
 
 Case_Expr :: struct {
     using base_expr: Expr,
     pattern: ^Pattern,
-    rules: []Match_Rule,
+    rules: []^Match_Rule,
+}
+new_case_expr :: proc(pattern: ^Pattern, rules: []^Match_Rule) -> ^Case_Expr {
+    case_expr := new(Case_Expr)
+    case_expr ^= Case_Expr { pattern=pattern, rules=rules, base_node=pattern.base_node }
+    connect(&case_expr.base_expr, case_expr)
+    return case_expr
 }
 
 Fn_Expr :: struct {
     using base_expr: Expr,
-    rules: []Match_Rule,
+    rules: []^Match_Rule,
+}
+new_fn_expr :: proc(rules: []^Match_Rule, base: Node) -> ^Fn_Expr {
+    fn_expr := new(Fn_Expr)
+    fn_expr ^= Fn_Expr { rules=rules, base_node=base }
+    connect(&fn_expr.base_expr, fn_expr)
+    return fn_expr
 }
 
 Seq_Expr :: struct {
