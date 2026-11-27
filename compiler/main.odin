@@ -7,12 +7,28 @@ import "../ast"
 
 
 main :: proc() {
-    test_append_marks_function()
+    test_lambda_fn_parsing()
 }
 
-test_o_parsing :: proc() {
+test_lambda_fn_parsing :: proc() {
     script := `
-    val a = "str";
+    val sqr = fn x => x*x;
+
+    val is_empty = 
+        fn nil => "yes"
+         | xs  => "no"
+    `
+    test_script(&script)
+}
+
+test_while_case_parsing :: proc() {
+    script := `
+    val x' = while x < limit
+    do increase x;
+
+    val y' = case y of 
+        nothing => ""
+        | some_n => tostring n;
     `
     test_script(&script)
 }

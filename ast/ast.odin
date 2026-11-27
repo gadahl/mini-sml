@@ -18,6 +18,8 @@ Any_Node :: union {
     ^Expr_Field,
     ^Pattern_Field,
     ^Type_Field,
+    ^Match,
+    ^Match_Rule,
 }
 
 connect_node :: proc(base: ^Node, variant: Any_Node) {
@@ -51,9 +53,26 @@ new_name :: proc(name: string, base: Node) -> ^Name {
 
 Literal_Value :: union { i32, f32, string }
 
+Match :: struct {
+    using base_node: Node,
+    rules: [dynamic]^Match_Rule,
+}
+new_match :: proc(rules: [dynamic]^Match_Rule, base: Node) -> ^Match {
+    match_node := new(Match)
+    match_node ^= Match { base_node=base, rules=rules }
+    connect(&match_node.base_node, match_node)
+    return match_node
+}
 Match_Rule :: struct {
-    pattern: Pattern,
-    expr: Expr,
+    using base_node: Node,
+    pattern: ^Pattern,
+    expr: ^Expr,
+}
+new_match_rule :: proc(pattern: ^Pattern, expr: ^Expr) -> ^Match_Rule {
+    rule := new(Match_Rule)
+    rule ^= Match_Rule { base_node=pattern.base_node, pattern=pattern, expr=expr }
+    connect(&rule.base_node, rule)
+    return rule
 }
 
 
@@ -133,8 +152,7 @@ print_tree :: proc(n: Node, indent: int = 0) {
             fmt.printfln("%s%T ", spaces, e^)
             fmt.printfln("%s  expr=", spaces)
             print_tree(e.expr, indent+2)
-            fmt.printfln("%s  rules=[display unimplemented]", spaces)
-            // todo: print_arr_node("rules", e.rules[:], indent+1)
+            print_arr_node("rules", e.match.rules[:], indent+1)
         case ^Raise_Expr:
             fmt.printfln("%s%T: ", spaces, e^)
             print_tree(e.raised, indent+1)
@@ -147,6 +165,7 @@ print_tree :: proc(n: Node, indent: int = 0) {
             fmt.printfln("%s  false_branch=", spaces)
             print_tree(e.false_branch, indent+2)
         case ^While_Expr:
+            fmt.printfln("%s%T ", spaces, e^)
             fmt.printfln("%s  condition=", spaces)
             print_tree(e.condition, indent+2)
             fmt.printfln("%s  body=", spaces)
@@ -155,12 +174,9 @@ print_tree :: proc(n: Node, indent: int = 0) {
             fmt.printfln("%s%T ", spaces, e^)
             fmt.printfln("%s  pattern=", spaces)
             print_tree(e.pattern, indent+2)
-            fmt.printfln("%s  rules=[display unimplemented]", spaces)
-            // todo: print_arr_node("rules", e.rules[:], indent+1)
+            print_arr_node("rules", e.match.rules[:], indent+1)
         case ^Fn_Expr:
-            fmt.printfln("%s%T ", spaces, e^)
-            fmt.printfln("%s  rules=[display unimplemented]", spaces)
-            // todo: print_arr_node("rules", e.rules[:], indent+1)
+            print_arr_node("Fn_Expr: rules", e.match.rules[:], indent)
         case ^Seq_Expr:
             print_arr_node("Seq_Expr", e.exprs, indent)
         case:
@@ -214,7 +230,14 @@ print_tree :: proc(n: Node, indent: int = 0) {
     case ^Type_Field:
         fmt.printfln("%sType_Field: `%s`, type=", spaces, v.label)
         print_tree(v.type, indent+1)
-
+    case ^Match:
+        print_arr_node("Match", v.rules[:], indent)
+    case ^Match_Rule:
+        fmt.printfln("%sMatch_Rule", spaces)
+        fmt.printfln("%s  pattern=", spaces)
+        print_tree(v.pattern, indent+2)
+        fmt.printfln("%s  expr=", spaces)
+        print_tree(v.expr, indent+2)
     }
 }
 

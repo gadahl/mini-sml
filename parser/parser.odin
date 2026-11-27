@@ -50,9 +50,9 @@ parser_pop :: proc(parser: ^Parser) {
 ParseErr :: struct {
     message: string,
 }
-new_temp_err :: proc(message: string) -> ^ParseErr {
+new_temp_err :: proc(parser: ^Parser, message: string) -> ^ParseErr {
     err := new(ParseErr, context.temp_allocator)
-    err.message = message
+    err.message = fmt.tprintf("line %d: %s", parser.curr_token.line, message)
     return err
 }
 
@@ -88,18 +88,18 @@ parse_keyword :: proc(parser: ^Parser, keyword: string) -> (out_err: ^ParseErr) 
     defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
 
     if !parser_has_next(parser) {
-        return new_temp_err(fmt.tprintf("Expected keyword `%s`, but reached end of file", keyword))
+        return new_temp_err(parser, fmt.tprintf("Expected keyword `%s`, but reached end of file", keyword))
     }
 
     t := parser.curr_token
     parser_advance(parser)
 
     if t.type != lexer.Token_Type.RESERVED_KEYWORD {
-        return new_temp_err(fmt.tprintf("Expected keyword `%s`, but got token of type %v", keyword, t.type))
+        return new_temp_err(parser, fmt.tprintf("Expected keyword `%s`, but got token of type %v", keyword, t.type))
     }
 
     if t.text != keyword {
-        return new_temp_err(fmt.tprintf("Expected keyword `%s`, but got `%s`", keyword, t.text))
+        return new_temp_err(parser, fmt.tprintf("Expected keyword `%s`, but got `%s`", keyword, t.text))
     }
 
     return nil
@@ -110,18 +110,18 @@ peek_keyword :: proc(parser: ^Parser, keyword: string) -> (out_err: ^ParseErr) {
     defer parser_rewind(parser)
 
     if !parser_has_next(parser) {
-        return new_temp_err(fmt.tprintf("Expected keyword `%s`, but reached end of file", keyword))
+        return new_temp_err(parser, fmt.tprintf("Expected keyword `%s`, but reached end of file", keyword))
     }
 
     t := parser.curr_token
     parser_advance(parser)
 
     if t.type != lexer.Token_Type.RESERVED_KEYWORD {
-        return new_temp_err(fmt.tprintf("Expected keyword `%s`, but got token of type %v", keyword, t.type))
+        return new_temp_err(parser, fmt.tprintf("Expected keyword `%s`, but got token of type %v", keyword, t.type))
     }
 
     if t.text != keyword {
-        return new_temp_err(fmt.tprintf("Expected keyword `%s`, but got `%s`", keyword, t.text))
+        return new_temp_err(parser, fmt.tprintf("Expected keyword `%s`, but got `%s`", keyword, t.text))
     }
 
     return nil
@@ -132,7 +132,7 @@ parse_ident :: proc(parser: ^Parser, is_symbolic: bool) -> (out: ^ast.Name, out_
     defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
 
     if !parser_has_next(parser) {
-        return nil, new_temp_err(fmt.tprintf("Expected identifier, but reached end of file"))
+        return nil, new_temp_err(parser, fmt.tprintf("Expected identifier, but reached end of file"))
     }
 
     t := parser.curr_token
@@ -144,7 +144,7 @@ parse_ident :: proc(parser: ^Parser, is_symbolic: bool) -> (out: ^ast.Name, out_
     }
     else {
         expected := is_symbolic ? "infix identifier" : "identifier"
-        return nil, new_temp_err(fmt.tprintf("Expected %s, but got token of type %v", expected, t.type))
+        return nil, new_temp_err(parser, fmt.tprintf("Expected %s, but got token of type %v", expected, t.type))
     }
 }
 
@@ -153,7 +153,7 @@ parse_literal :: proc(parser: ^Parser) -> (out1: ast.Literal_Value, out2: ^ast.N
     defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
 
     if !parser_has_next(parser) {
-        return nil, nil, new_temp_err(fmt.tprintf("Expected identifier, but reached end of file"))
+        return nil, nil, new_temp_err(parser, fmt.tprintf("Expected identifier, but reached end of file"))
     }
 
     t := parser.curr_token
@@ -177,6 +177,50 @@ parse_literal :: proc(parser: ^Parser) -> (out1: ast.Literal_Value, out2: ^ast.N
         return val, node, nil
     }
     else {
-        return nil, nil, new_temp_err(fmt.tprintf("Expected literal value, but got token of type %v", t.type))
+        return nil, nil, new_temp_err(parser, fmt.tprintf("Expected literal value, but got token of type %v", t.type))
     }
+}
+
+parse_match :: proc(parser: ^Parser) -> (out: ^ast.Match, out_err: ^ParseErr) {
+    parser_mark(parser)
+    defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
+
+    // MATCH_RULE (`|` MATCH_RULE)*
+
+    first_rule, first_err := parse_match_rule(parser)
+    if first_err != nil do return nil, first_err
+
+    rules := make([dynamic]^ast.Match_Rule)
+    append(&rules, first_rule)
+
+    for {   
+        pipe_err := parse_keyword(parser, "|")
+        if pipe_err != nil do break;
+        
+        rule, rule_err := parse_match_rule(parser)
+        if rule_err != nil {
+            delete(rules)
+            return nil, rule_err
+        }
+        
+        append(&rules, rule)
+    }
+
+    return ast.new_match(rules, first_rule.base_node), nil
+}
+
+parse_match_rule :: proc(parser: ^Parser) -> (out: ^ast.Match_Rule, out_err: ^ParseErr) {
+    parser_mark(parser)
+    defer { if out_err == nil { parser_pop(parser) } else { parser_rewind(parser) } }
+
+    pattern, pattern_err := parse_pattern(parser)
+    if pattern_err != nil do return nil, pattern_err
+
+    arrow_err := parse_keyword(parser, "=>")
+    if arrow_err != nil do return nil, arrow_err
+    
+    expr, expr_err := parse_expr(parser)
+    if expr_err != nil do return nil, expr_err
+
+    return ast.new_match_rule(pattern, expr), nil
 }

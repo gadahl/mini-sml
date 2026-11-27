@@ -18,20 +18,20 @@ parse_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr) {
     // `fn` MATCH
     
     if err := parse_keyword(parser, "raise"); err == nil {
-        return nil, new_temp_err("`raise` expr not implemented")
+        return nil, new_temp_err(parser, "`raise` expr not implemented")
     }
     if err := parse_keyword(parser, "if"); err == nil {
         cond_expr, cond_err := parse_expr(parser)
         if cond_err != nil do return nil, cond_err
 
-        if parse_keyword(parser, "then") != nil {
+        if err := parse_keyword(parser, "then"); err != nil {
             return nil, err
         }
 
         true_expr, true_err := parse_expr(parser)
         if true_err != nil do return nil, true_err
 
-        if parse_keyword(parser, "else") != nil {
+        if err := parse_keyword(parser, "else"); err != nil {
             return nil, err
         }
 
@@ -41,13 +41,36 @@ parse_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseErr) {
         return ast.new_if_expr(cond_expr, true_expr, false_expr), nil
     }
     if err := parse_keyword(parser, "while"); err == nil {
-        return nil, new_temp_err("`while` expr not implemented")
+        cond_expr, cond_err := parse_expr(parser)
+        if cond_err != nil do return nil, cond_err
+
+        if err := parse_keyword(parser, "do"); err != nil {
+            return nil, err
+        }
+
+        body, body_err := parse_expr(parser)
+        if body_err != nil do return nil, body_err
+
+        return ast.new_while_expr(cond_expr, body), nil
     }
     if err := parse_keyword(parser, "case"); err == nil {
-        return nil, new_temp_err("`case` expr not implemented")
+        pattern, pattern_err := parse_pattern(parser)
+        if pattern_err != nil do return nil, pattern_err
+
+        if err := parse_keyword(parser, "of"); err != nil {
+            return nil, err
+        }
+
+        match, match_err := parse_match(parser)
+        if match_err != nil do return nil, match_err
+
+        return ast.new_case_expr(pattern, match), nil
     }
     if err := parse_keyword(parser, "fn"); err == nil {
-        return nil, new_temp_err("`fn` expr not implemented")
+        match, match_err := parse_match(parser)
+        if match_err != nil do return nil, match_err
+
+        return ast.new_fn_expr(match), nil
     }
 
     return parse_handled_expr(parser)
@@ -186,7 +209,7 @@ parse_atomic_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseEr
     }
     if err := parse_keyword(parser, "["); err == nil {
         list, list_err := cast(^ast.List_Expr)nil, 
-                            new_temp_err("List parsing not yet implemented")
+                            new_temp_err(parser, "List parsing not yet implemented")
                             // parse_list_contents(parser)
         if list_err != nil do return nil, list_err
 
@@ -197,7 +220,7 @@ parse_atomic_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseEr
     }
     if err := parse_keyword(parser, "{"); err == nil {
         record, record_err := cast(^ast.Record_Expr)nil, 
-                            new_temp_err("Record parsing not yet implemented")
+                            new_temp_err(parser, "Record parsing not yet implemented")
                             // parse_record_contents(parser)
         if record_err != nil do return nil, record_err
 
@@ -230,5 +253,5 @@ parse_atomic_expr :: proc(parser: ^Parser) -> (out: ^ast.Expr, out_err: ^ParseEr
 
         return ast.new_let_expr(decls, expr), nil
     }
-    return nil, new_temp_err(fmt.tprintf("Expected atomic expression, but could not parse any"))
+    return nil, new_temp_err(parser, fmt.tprintf("Expected atomic expression, but could not parse any"))
 }

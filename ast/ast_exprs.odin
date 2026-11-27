@@ -201,7 +201,7 @@ Orelse_Expr :: struct {
 Handle_Expr :: struct {
     using base_expr: Expr,
     expr: ^Expr,
-    rules: []Match_Rule,
+    match: ^Match,
 }
 
 Raise_Expr :: struct {
@@ -240,27 +240,33 @@ new_while_expr :: proc(condition: ^Expr, body: ^Expr) -> ^While_Expr {
 Case_Expr :: struct {
     using base_expr: Expr,
     pattern: ^Pattern,
-    rules: []^Match_Rule,
+    match: ^Match,
 }
-new_case_expr :: proc(pattern: ^Pattern, rules: []^Match_Rule) -> ^Case_Expr {
+new_case_expr :: proc(pattern: ^Pattern, match: ^Match) -> ^Case_Expr {
     case_expr := new(Case_Expr)
-    case_expr ^= Case_Expr { pattern=pattern, rules=rules, base_node=pattern.base_node }
+    case_expr ^= Case_Expr { pattern=pattern, match=match, base_node=pattern.base_node }
     connect(&case_expr.base_expr, case_expr)
     return case_expr
 }
 
 Fn_Expr :: struct {
     using base_expr: Expr,
-    rules: []^Match_Rule,
+    match: ^Match,
 }
-new_fn_expr :: proc(rules: []^Match_Rule, base: Node) -> ^Fn_Expr {
+new_fn_expr :: proc(match: ^Match) -> ^Fn_Expr {
     fn_expr := new(Fn_Expr)
-    fn_expr ^= Fn_Expr { rules=rules, base_node=base }
+    fn_expr ^= Fn_Expr { match=match, base_node=match.base_node }
     connect(&fn_expr.base_expr, fn_expr)
     return fn_expr
 }
 
 Seq_Expr :: struct {
     using base_expr: Expr,
-    exprs: []Expr,
+    exprs: []^Expr,
+}
+new_seq_expr :: proc(exprs: []^Expr, base: Node) -> ^Seq_Expr {
+    seq_expr := new(Seq_Expr)
+    seq_expr ^= Seq_Expr { exprs=exprs, base_node=base }
+    connect(&seq_expr.base_expr, seq_expr)
+    return seq_expr
 }

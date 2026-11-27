@@ -67,7 +67,7 @@ parse_decl :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) {
     }
     else if err = parse_keyword(parser, "local"); err == nil {
         // must parse: DECLS `in` DECLS `end`
-        return nil, new_temp_err("unimplemented decl")
+        return nil, new_temp_err(parser, "unimplemented decl")
     }
     else if err = parse_keyword(parser, "infix"); err == nil {
         return parse_infix_details(parser, false)
@@ -75,7 +75,7 @@ parse_decl :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) {
     else if err = parse_keyword(parser, "infixr"); err == nil {
         return parse_infix_details(parser, true)
     }
-    return nil, new_temp_err("could not parse decl") 
+    return nil, new_temp_err(parser, "could not parse decl") 
 }
 
 parse_val_binds :: proc(parser: ^Parser) -> (out: ^ast.Decl, out_err: ^ParseErr) {
@@ -190,7 +190,7 @@ parse_infix_details :: proc(parser: ^Parser, is_right_assoc: bool) -> (out: ^ast
             snugness = int(num)
         }
         else {
-            return nil, new_temp_err("infix keyword must be followed by a positive number or operators")
+            return nil, new_temp_err(parser, "infix keyword must be followed by a positive number or operators")
         }
     }
 

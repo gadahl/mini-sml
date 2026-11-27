@@ -15,17 +15,14 @@ parse_pattern :: proc(parser: ^Parser) -> (out: ^ast.Pattern, out_err: ^ParseErr
     // INFIX_PATTERN (`:` TYPE)?
 
     infix, err := parse_infix_pattern(parser)
-    if err != nil {
-        return nil, err
-    }
+    if err != nil do return nil, err
 
     if err := parse_keyword(parser, ":"); err == nil {
         // needs to have a type, otherwise invalid
         
         ty, err := parse_type(parser)
-        if err != nil {
-            return nil, err
-        }
+        if err != nil do return nil, err
+        
         return ast.new_typed_pattern(infix, ty), nil
     }
     else {
@@ -63,6 +60,6 @@ parse_atomic_pattern :: proc(parser: ^Parser) -> (out: ^ast.Pattern, out_err: ^P
         // NOTE: we need to avoid having just a literal pattern on the lhs of an assignment
     }
     // TODO: add other cases
-    return nil, new_temp_err(fmt.tprintf("Expected atomic pattern, but could not parse any"));
+    return nil, new_temp_err(parser, fmt.tprintf("Expected atomic pattern, but could not parse any"));
 
 }
