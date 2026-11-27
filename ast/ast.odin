@@ -114,7 +114,7 @@ print_tree :: proc(n: Node, indent: int = 0) {
         case ^Infix_Chain_Expr:
             print_interleaved("Infix_Chain_Expr", e.exprs[:], e.operators[:], indent)
         case ^Infix_Expr:
-            fmt.printfln("%s%T: [unimplemented]", spaces, e^)
+            fmt.printfln("%s%T: [display unimplemented]", spaces, e^)
         case ^Typed_Expr:
             fmt.printfln("%s%T ", spaces, e^)
             fmt.printfln("%s  expr=", spaces)
@@ -133,8 +133,8 @@ print_tree :: proc(n: Node, indent: int = 0) {
             fmt.printfln("%s%T ", spaces, e^)
             fmt.printfln("%s  expr=", spaces)
             print_tree(e.expr, indent+2)
-            fmt.printfln("%s  rules=[unimplemented]", spaces)
-            // todo: stuff print_arr_node("rules", e.rules[:], indent+1)
+            fmt.printfln("%s  rules=[display unimplemented]", spaces)
+            // todo: print_arr_node("rules", e.rules[:], indent+1)
         case ^Raise_Expr:
             fmt.printfln("%s%T: ", spaces, e^)
             print_tree(e.raised, indent+1)
@@ -147,13 +147,22 @@ print_tree :: proc(n: Node, indent: int = 0) {
             fmt.printfln("%s  false_branch=", spaces)
             print_tree(e.false_branch, indent+2)
         case ^While_Expr:
-            fmt.printfln("%s%T: [unimplemented]", spaces, e^)
+            fmt.printfln("%s  condition=", spaces)
+            print_tree(e.condition, indent+2)
+            fmt.printfln("%s  body=", spaces)
+            print_tree(e.body, indent+2)
         case ^Case_Expr:
-            fmt.printfln("%s%T: [unimplemented]", spaces, e^)
+            fmt.printfln("%s%T ", spaces, e^)
+            fmt.printfln("%s  pattern=", spaces)
+            print_tree(e.pattern, indent+2)
+            fmt.printfln("%s  rules=[display unimplemented]", spaces)
+            // todo: print_arr_node("rules", e.rules[:], indent+1)
         case ^Fn_Expr:
-            fmt.printfln("%s%T: [unimplemented]", spaces, e^)
+            fmt.printfln("%s%T ", spaces, e^)
+            fmt.printfln("%s  rules=[display unimplemented]", spaces)
+            // todo: print_arr_node("rules", e.rules[:], indent+1)
         case ^Seq_Expr:
-            fmt.printfln("%s%T: [unimplemented]", spaces, e^)
+            print_arr_node("Seq_Expr", e.exprs, indent)
         case:
             fmt.printfln("%s[undefined expr]", spaces)
         }
