@@ -7,7 +7,16 @@ import "../ast"
 
 
 main :: proc() {
-    test_lambda_fn_parsing()
+    test_infix_parsing()
+}
+
+test_infix_parsing :: proc() {
+    script := `
+    infix 5 + -;
+    infix 6 * /;
+    fun f x y = x + y*x + y
+    `
+    test_script(&script)
 }
 
 test_lambda_fn_parsing :: proc() {
@@ -115,15 +124,17 @@ test_script :: proc(script: ^string) {
     tokens := lexer.tokenize(script)
     defer delete_tokens(tokens)
 
-    display_tokens(tokens[:])
+    //display_tokens(tokens[:])
 
     tree, err := parser.parse_program(tokens[:])
     if err != nil {
-        fmt.println("error:", err.message)
+        fmt.println("parse error --- ", err.message)
+        return
     }
-    else {
-        ast.print_tree(tree.base_node)
-    }
+    
+    //ast.print_tree(tree.base_node)
+
+    ast.walk(&tree.base_node)
 }
 
 token_test_1 :: proc() {

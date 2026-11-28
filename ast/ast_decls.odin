@@ -58,13 +58,15 @@ new_fun_decl :: proc(arms: [dynamic]^Fun_Arm, base: Node) -> ^Fun_Decl {
     return fun_decl
 }
 Fun_Arm :: struct{
+    using base_node: Node,
     name: string,
     args: [dynamic]^Pattern,
     expr: ^Expr,
 }
 new_fun_arm :: proc(name: string, args: [dynamic]^Pattern, expr: ^Expr) -> ^Fun_Arm {
     fun_arm := new(Fun_Arm)
-    fun_arm ^= Fun_Arm { name=name, args=args, expr=expr }
+    fun_arm ^= Fun_Arm { name=name, args=args, expr=expr, base_node=expr.base_node }
+    connect(&fun_arm.base_node, fun_arm)
     return fun_arm
 }
 

@@ -46,12 +46,12 @@ new_ident_type :: proc(name: string, base: Node) -> ^Ident_Type {
 Constructed_Type :: struct {
     using base_type: Type,
     constructor: ^Type,
-    args: [dynamic]Type,
+    args: [dynamic]^Type,
 }
 
 Record_Type :: struct {
     using base_type: Type,
-    fields: [dynamic]Type_Field,
+    fields: [dynamic]^Type_Field,
 }
 Type_Field :: struct {
     using base_node: Node,
@@ -61,7 +61,7 @@ Type_Field :: struct {
 
 Tuple_Type :: struct {
     using base_type: Type,
-    components: [dynamic]Type,
+    components: [dynamic]^Type,
 }
 
 Func_Type :: struct {
